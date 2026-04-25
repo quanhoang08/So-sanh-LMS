@@ -1,0 +1,168 @@
+services:
+  rabbitmq:
+      image: rabbitmq:3-management-alpine
+      container_name: rabbitmq
+      ports:
+        - "5672:5672"
+        - "15672:15672"
+      networks:
+        - lms-network
+      environment:
+      # Thêm dòng này để fix lỗi permission cookie
+      - RABBITMQ_ERLANG_COOKIE=LMS_SECRET_COOKIE
+      healthcheck:
+        test: ["CMD", "rabbitmq-diagnostics", "ping"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+
+# =====================
+#   Academic module
+# =====================
+
+  # DB
+  academic-db:
+    image: postgres:15-alpine
+    container_name: academic_db
+    environment:
+      POSTGRES_DB: lms_academic # Khớp với DB_NAME trong .env của bạn
+      POSTGRES_PASSWORD: 123456
+    volumes:
+      - academic_pgdata:/var/lib/postgresql/data
+      - ./AcademicService/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lms_academic"]
+      interval: 5s
+      retries: 5
+    networks:
+      - lms-network
+  
+  # Academic Service
+  academic-service:
+    build: ./AcademicService
+    container_name: academic_service
+    env_file:
+      - './AcademicService/.env' # Sử dụng file cấu hình của bạn
+    depends_on:
+      academic-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - lms-network
+
+# ================
+#  Account module
+# ================
+
+  account-db:
+    image: postgres:15-alpine
+    container_name: account_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: accounts_db
+    volumes:
+      - account_pgdata:/var/lib/postgresql/data
+      - ./AccountService/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d accounts_db"]
+      interval: 10s
+      retries: 5
+    networks:
+      - lms-network
+  account-service:
+    build:
+      context: ./AccountService
+      dockerfile: Dockerfile
+    container_name: account_service
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./AccountService/.env
+    depends_on:
+      account-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - lms-network
+
+  course-db:
+    image: postgres:15-alpine
+    container_name: course_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: course_db
+    volumes:
+      - course_pgdata:/var/lib/postgresql/data
+      - ./CourseService/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d course_db"]
+      interval: 10s
+      retries: 5
+    networks:
+      - lms-network
+
+  # 4. COURSE SERVICE (Mới Thêm)
+  course-service:
+    build:
+      context: ./CourseService
+      dockerfile: Dockerfile
+    container_name: course_service
+    ports:
+      - "3002:3002"
+    env_file:
+    - ./CourseService/.env
+    depends_on:
+      course-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - lms-network
+
+  # 5. FRONTEND
+  frontend-gateway:
+    build:
+      context: ./frontend-gateway
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8080
+    container_name: lms_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend-gateway:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=http://localhost:8080
+    networks:
+      - lms-network
+
+  # 6. API GATEWAY
+  api-gateway:
+    image: nginx:alpine
+    container_name: api_gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - account-service
+      - academic-service
+      - course-service # Nhớ cấu hình route cho port 3002 trong nginx.conf
+    networks:
+      - lms-network
+
+volumes:
+  account_pgdata:   # Volume riêng cho Account DB
+  course_pgdata:    # Volume riêng cho Course DB
+  academic_pgdata:  # Volume riêng cho Academic DB
+
+networks:
+  lms-network:
+    driver: bridge

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>LMS — Khóa học</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .course-card { display:flex;flex-direction:column;height:100%; }
+    .course-card .card-foot { margin-top:auto;padding-top:1rem;border-top:1px solid var(--border); }
+    .credit-badge { font-size:.75rem;color:var(--text-muted);display:flex;align-items:center;gap:4px; }
+    .credit-badge svg { width:12px;height:12px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <%- include('../partials/student-topbar') %>
+  <div class="layout-body">
+    <%- include('../partials/student-sidebar', { activeMenu: 'course' }) %>
+
+    <main class="layout-main">
+      <div class="max-content">
+
+        <div class="page-header">
+          <h1 class="page-title">Quản lý Khóa học</h1>
+        </div>
+
+        <!-- Registered courses -->
+        <% if (registered && registered.length > 0) { %>
+        <div style="margin-bottom:2.5rem;">
+          <h2 style="font-size:1.125rem;font-weight:600;color:var(--text-primary);margin-bottom:1rem;display:flex;align-items:center;gap:8px;">
+            <svg width="18" height="18" fill="none" stroke="#3fb950" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+            Khóa học của tôi (Đã đăng ký)
+          </h2>
+          <div class="grid-3">
+            <% registered.forEach(function(c){ %>
+            <div class="card course-card" style="padding:1.25rem;">
+              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.75rem;">
+                <span style="padding:3px 8px;font-size:.75rem;font-weight:500;background:rgba(31,111,235,.15);color:#58a6ff;border-radius:4px;border:1px solid rgba(31,111,235,.25);">
+                  ID: <%= c.id %>
+                </span>
+                <span class="credit-badge">
+                  <%= c.enrollmentStatus === 'enrolled' ? 'Đang học' : (c.enrollmentStatus === 'completed' ? 'Hoàn thành' : 'Đã hủy') %>
+                </span>
+              </div>
+              <h3 style="font-weight:700;font-size:1.05rem;color:#fff;margin-bottom:4px;"><%= c.title %></h3>
+              <p style="font-size:.875rem;color:var(--text-muted);margin-bottom:1rem;">GV: <%= c.createdBy?.fullname || c.createdBy?.email || 'N/A' %></p>
+              
+              <div style="margin-bottom:1rem;">
+                 <div style="width:100%;background:#374151;height:6px;border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;background:#3fb950;width:<%= c.progressPct || 0 %>%"></div>
+                 </div>
+                 <div style="font-size:0.75rem; color:#8b949e; margin-top:4px;">Tiến độ: <%= c.progressPct || 0 %>%</div>
+              </div>
+
+              <div class="card-foot">
+                <a href="/student/courses/<%= c.id %>" class="btn btn-ghost btn-block" style="justify-content:center;">Vào lớp học</a>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+        </div>
+        <% } %>
+
+        <!-- Available courses -->
+        <div>
+          <h2 style="font-size:1.125rem;font-weight:600;color:var(--text-primary);margin-bottom:1rem;display:flex;align-items:center;gap:8px;">
+            <svg width="18" height="18" fill="none" stroke="#58a6ff" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Khóa học đang mở đăng ký
+          </h2>
+          <% if (!available || available.length === 0) { %>
+            <p style="color:#8b949e;">Hiện tại không có khóa học nào mới.</p>
+          <% } else { %>
+          <div class="grid-3">
+            <% available.forEach(function(c){ %>
+            <div class="card course-card" style="padding:1.25rem;background:var(--bg-base);opacity:.85;transition:opacity .2s;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='.85'">
+              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.75rem;">
+                <span style="padding:3px 8px;font-size:.75rem;font-weight:500;background:var(--bg-hover);color:var(--text-primary);border-radius:4px;border:1px solid var(--border);">
+                  ID: <%= c.id %>
+                </span>
+                <span class="credit-badge" style="color:#a855f7;">
+                  Trạng thái: Tự do
+                </span>
+              </div>
+              <h3 style="font-weight:700;font-size:1.05rem;color:var(--text-primary);margin-bottom:4px;"><%= c.title %></h3>
+              <p style="font-size:.875rem;color:var(--text-muted);margin-bottom:1rem;">GV: <%= c.createdBy?.fullname || c.createdBy?.email || 'N/A' %></p>
+              <div class="card-foot">
+                <button class="btn btn-green btn-block" style="justify-content:center;" onclick="enrollCourse('<%= c.id %>')">Đăng ký ngay</button>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+          <% } %>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+<script src="/js/main.js"></script>
+<script>
+function enrollCourse(courseId) {
+  fetch('/student/courses/' + courseId + '/enroll', { method: 'POST' })
+    .then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || 'Không thể đăng ký khóa học.');
+      }
+      showToast('Đăng ký khóa học thành công!');
+      window.location.reload();
+    })
+    .catch((err) => showToast(err.message || 'Đăng ký thất bại.', 'error'));
+}
+</script>
+</body>
+</html>

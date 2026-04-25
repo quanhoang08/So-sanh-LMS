@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>LMS — Điểm danh</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="layout">
+  <%- include('../partials/student-topbar') %>
+  <div class="layout-body">
+    <%- include('../partials/student-sidebar', { activeMenu: 'attendance' }) %>
+
+    <main class="layout-main">
+      <div class="max-content">
+
+        <div class="page-header">
+          <h1 class="page-title">
+            <svg width="24" height="24" fill="none" stroke="#238636" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+            Điểm danh học kỳ hiện tại
+          </h1>
+        </div>
+
+        <% const totalCourses = (enrollments || []).length; %>
+        <% const inProgressCourses = (enrollments || []).filter(e => e.status === 'in_progress').length; %>
+        <% const completedCourses = (enrollments || []).filter(e => e.status === 'completed').length; %>
+
+        <!-- KPI summary -->
+        <div class="grid-3 mb-8">
+          <div class="stat-card" style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div class="stat-label">Tổng số môn đã ghi danh</div>
+              <div class="stat-value" style="color:var(--text-primary);"><%= totalCourses %></div>
+            </div>
+            <div style="padding:10px;background:rgba(35,134,54,.1);border-radius:50%;">
+              <svg width="24" height="24" fill="none" stroke="#3fb950" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+            </div>
+          </div>
+          <div class="stat-card" style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div class="stat-label">Môn đang học</div>
+              <div class="stat-value text-red"><%= inProgressCourses %></div>
+            </div>
+            <div style="padding:10px;background:rgba(218,54,51,.1);border-radius:50%;">
+              <svg width="24" height="24" fill="none" stroke="#f85149" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </div>
+          </div>
+          <div class="stat-card" style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div class="stat-label">Môn đã hoàn thành</div>
+              <div class="stat-value text-yellow"><%= completedCourses %></div>
+            </div>
+            <div style="padding:10px;background:rgba(234,179,8,.1);border-radius:50%;">
+              <svg width="24" height="24" fill="none" stroke="#eab308" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail table -->
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Môn học</th>
+                  <th style="text-align:center;">Ngày ghi danh</th>
+                  <th style="text-align:center;color:#3fb950;">Tiến độ (%)</th>
+                  <th style="text-align:center;color:#f85149;">Trạng thái ghi danh</th>
+                  <th style="text-align:center;color:#eab308;">Hoàn thành lúc</th>
+                  <th style="text-align:center;">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (enrollments && enrollments.length > 0) { %>
+                  <% enrollments.forEach(function(enr){ %>
+                  <tr>
+                    <td style="font-weight:500;color:#fff;"><%= enr.course ? enr.course.title : '' %></td>
+                    <td style="text-align:center;"><%= enr.enrolledAt ? new Date(enr.enrolledAt).toLocaleDateString('vi-VN') : '-' %></td>
+                    <td style="text-align:center;"><%= enr.progressPct ?? 0 %></td>
+                    <td style="text-align:center;"><%= enr.status || '-' %></td>
+                    <td style="text-align:center;"><%= enr.completedAt ? new Date(enr.completedAt).toLocaleDateString('vi-VN') : '-' %></td>
+                    <td style="text-align:center;">
+                      <% if (enr.status === 'completed') { %>
+                        <span class="badge badge-green">
+                          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+                          Hoàn thành
+                        </span>
+                      <% } else if (enr.status === 'in_progress') { %>
+                        <span class="badge badge-yellow">Đang học</span>
+                      <% } else if (enr.status === 'dropped') { %>
+                        <span class="badge badge-red">Đã hủy</span>
+                      <% } else { %>
+                        <span class="badge">Đã ghi danh</span>
+                      <% } %>
+                    </td>
+                  </tr>
+                  <% }) %>
+                <% } else { %>
+                  <tr><td colspan="6" style="text-align:center;">Không có dữ liệu điểm danh.</td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+<script src="/js/main.js"></script>
+</body>
+</html>

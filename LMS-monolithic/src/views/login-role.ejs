@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LMS — Đăng nhập</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+  <div class="login-page">
+    <div class="login-logo">
+      <img src="/images/logo.png" alt="TDTU Logo" onerror="this.style.display='none'">
+      <h1>Đăng nhập LMS</h1>
+      <p>Người học dùng email <span class="highlight">@student.tdtu.edu.vn</span> — Giảng viên dùng
+        <span class="highlight">@lecturer.tdtu.edu.vn</span></p>
+    </div>
+
+    <div class="login-card">
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <div class="input-icon-wrap">
+            <span class="pre-icon">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+            </span>
+            <input type="text" required
+              placeholder="mssv@student.tdtu.edu.vn hoặc ten@lecturer.tdtu.edu.vn"
+              class="form-input" id="login-username" autocomplete="username">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-row-split">
+            <label class="form-label" style="margin-bottom:0;">Mật khẩu</label>
+            <a href="#">Quên mật khẩu?</a>
+          </div>
+          <div class="input-icon-wrap">
+            <span class="pre-icon">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </span>
+            <input type="password" required placeholder="••••••••" class="form-input" id="login-password"
+              autocomplete="current-password">
+            <button type="button" class="suf-btn" data-pw-toggle="login-password">
+              <span class="eye-on"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg></span>
+              <span class="eye-off hidden"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path
+                    d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg></span>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-green btn-block" id="login-btn" style="padding:.625rem 1rem;">
+          <span id="login-btn-text">Đăng nhập</span>
+          <span id="login-spinner" class="spin-wrap hidden"></span>
+        </button>
+      </form>
+
+      <div class="login-note">
+        Hệ thống tự chuyển tới khu vực Người học hoặc Giảng viên theo email bạn nhập.
+      </div>
+    </div>
+
+    <footer class="login-footer">&copy; 2026 Ton Duc Thang University. All rights reserved.</footer>
+  </div>
+
+  <script src="/js/main.js"></script>
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const txt = document.getElementById('login-btn-text');
+      const spin = document.getElementById('login-spinner');
+      const email = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+
+      const existingAlert = document.getElementById('login-error-alert');
+      if (existingAlert) {
+        existingAlert.remove();
+      }
+
+      btn.disabled = true;
+      txt.classList.add('hidden');
+      spin.classList.remove('hidden');
+
+      try {
+        const response = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+          btn.disabled = false;
+          txt.classList.remove('hidden');
+          spin.classList.add('hidden');
+
+          const errorAlert = document.createElement('div');
+          errorAlert.id = 'login-error-alert';
+          errorAlert.style.color = '#ff4d4f';
+          errorAlert.style.backgroundColor = '#fff2f0';
+          errorAlert.style.border = '1px solid #ffccc7';
+          errorAlert.style.padding = '10px';
+          errorAlert.style.borderRadius = '4px';
+          errorAlert.style.marginBottom = '15px';
+          errorAlert.style.fontSize = '0.9rem';
+          errorAlert.innerText = Array.isArray(result.message) ? result.message[0] : (result.message || 'Đăng nhập thất bại');
+
+          const form = document.getElementById('login-form');
+          form.insertBefore(errorAlert, form.firstChild);
+          return;
+        }
+
+        const destination = result.redirectUrl || '/';
+        setTimeout(() => {
+          window.location.href = destination;
+        }, 600);
+      } catch (err) {
+        btn.disabled = false;
+        txt.classList.remove('hidden');
+        spin.classList.add('hidden');
+        alert('Có lỗi xảy ra kết nối từ máy chủ. Vui lòng thử lại sau.');
+      }
+    }
+  </script>
+</body>
+
+</html>

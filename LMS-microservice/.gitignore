@@ -1,0 +1,34 @@
+schem
+AcademicService/.early.coverage
+AcademicService/node_modules/
+AcademicService/test
+# AcademicService/.env
+# AcademicService/schema.sql
+# AcademicService/Dockerfile
+
+
+frontend-gateway/node_modules/
+# frontend-gateway/public
+# frontend-gateway/Dockerfile
+
+AccountService/.early.coverage
+AccountService/dist
+AccountService/node_modules/
+AccountService/test
+# AccountService/.env
+# AccountService/schema.sql
+# AccountService/Dockerfile
+
+CourseService/.early.coverage
+CourseService/dist
+CourseService/node_modules/
+CourseService/test
+# CourseService/schema.sql
+# CourseService/Dockerfile
+
+# init.sql
+# init-db.sh
+# docker-compose.yml
+# nginx.conf
+AccountService/src/upload.controller.js
+# schemafirebase-service-account.json

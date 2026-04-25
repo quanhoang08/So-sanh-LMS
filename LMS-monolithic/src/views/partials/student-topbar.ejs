@@ -1,0 +1,29 @@
+<%# Student Topbar partial %>
+<header class="topbar">
+  <div class="topbar-logo">
+    <img src="/images/logo.png" alt="TDTU" onerror="this.style.display='none'">
+    <div class="topbar-title">TDTU LMS</div>
+  </div>
+  <div class="topbar-right">
+    <!-- <button class="topbar-semester">HK2 2526 <%- icon('chevron_down', 'w-4 h-4') %></button> -->
+    <div class="topbar-divider"></div>
+    <div style="display:flex;align-items:center;gap:10px;color:#8b949e;">
+      <button class="topbar-icon-btn">
+        <%- icon('message', 'w-5 h-5') %>
+        <span class="badge-count">0</span>
+      </button>
+      <button class="topbar-icon-btn">
+        <%- icon('bell', 'w-5 h-5') %>
+        <span class="badge-count badge-yellow" style="background:#eab308;color:#000;">6</span>
+      </button>
+    </div>
+    <% 
+      let initials = 'A';
+      if (typeof user !== 'undefined' && user?.fullname) {
+        const parts = user.fullname.split(' ');
+        initials = parts[parts.length - 1].charAt(0).toUpperCase();
+      }
+    %>
+    <div class="avatar-circle" style="background:#065f46;cursor:pointer;" title="<%= typeof user !== 'undefined' && user?.fullname ? user.fullname : 'Học viên' %>"><%= initials %></div>
+  </div>
+</header>

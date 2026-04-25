@@ -1,0 +1,227 @@
+services:
+  # =====================
+  #  MONOLITHIC STACK
+  # =====================
+  monolith:
+    build:
+      context: ../LMS-monolithic
+      dockerfile: Dockerfile
+    container_name: benchmark_monolith
+    ports:
+      # Expose monolith API on :3000 for tests
+      - "3000:3001"
+    env_file:
+      - ../LMS-monolithic/.env
+    environment:
+      DB_HOST: monolith-db
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: 123456
+      DB_NAME: LMS-monolithic
+    depends_on:
+      monolith-db:
+        condition: service_healthy
+    networks:
+      - benchmark-net
+
+  monolith-db:
+    image: postgres:15-alpine
+    container_name: benchmark_monolith_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: LMS-monolithic
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d LMS-monolithic"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - benchmark-net
+
+  # =====================
+  #  MICROSERVICES STACK
+  # =====================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: benchmark_rabbitmq
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=LMS_SECRET_COOKIE
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - benchmark-net
+
+  academic-db:
+    image: postgres:15-alpine
+    container_name: benchmark_academic_db
+    environment:
+      POSTGRES_DB: lms_academic
+      POSTGRES_PASSWORD: 123456
+    volumes:
+      - academic_pgdata:/var/lib/postgresql/data
+      - ../LMS-microservice/AcademicService/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lms_academic"]
+      interval: 5s
+      retries: 5
+    networks:
+      - benchmark-net
+
+  academic-service:
+    build:
+      context: ../LMS-microservice/AcademicService
+      dockerfile: Dockerfile
+    container_name: benchmark_academic_service
+    env_file:
+      - ../LMS-microservice/AcademicService/.env
+    depends_on:
+      academic-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - benchmark-net
+
+  account-db:
+    image: postgres:15-alpine
+    container_name: benchmark_account_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: accounts_db
+    volumes:
+      - account_pgdata:/var/lib/postgresql/data
+      - ../LMS-microservice/AccountService/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d accounts_db"]
+      interval: 10s
+      retries: 5
+    networks:
+      - benchmark-net
+
+  account-service:
+    build:
+      context: ../LMS-microservice/AccountService
+      dockerfile: Dockerfile
+    container_name: benchmark_account_service
+    env_file:
+      - ../LMS-microservice/AccountService/.env
+    ports:
+      - "3101:3001"
+    depends_on:
+      account-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - benchmark-net
+
+  course-db:
+    image: postgres:15-alpine
+    container_name: benchmark_course_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: course_db
+    volumes:
+      - course_pgdata:/var/lib/postgresql/data
+      - ../LMS-microservice/CourseService/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d course_db"]
+      interval: 10s
+      retries: 5
+    networks:
+      - benchmark-net
+
+  course-service:
+    build:
+      context: ../LMS-microservice/CourseService
+      dockerfile: Dockerfile
+    container_name: benchmark_course_service
+    env_file:
+      - ../LMS-microservice/CourseService/.env
+    ports:
+      - "3202:3002"
+    depends_on:
+      course-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - benchmark-net
+
+  api-gateway:
+    image: nginx:alpine
+    container_name: benchmark_api_gateway
+    ports:
+      # Expose microservices API on :4000 for tests
+      - "4000:80"
+    volumes:
+      - ../LMS-microservice/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - account-service
+      - academic-service
+      - course-service
+    networks:
+      - benchmark-net
+
+  # =====================
+  #  MONITORING STACK
+  # =====================
+  prometheus:
+    image: prom/prometheus
+    container_name: benchmark_prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      cadvisor:
+        condition: service_started
+    ports:
+      - "9090:9090"
+    networks:
+      - benchmark-net
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: benchmark_cadvisor
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - benchmark-net
+
+  grafana:
+    image: grafana/grafana
+    container_name: benchmark_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning/datasources/prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - benchmark-net
+
+networks:
+  benchmark-net:
+    driver: bridge
+
+volumes:
+  academic_pgdata:
+  account_pgdata:
+  course_pgdata:

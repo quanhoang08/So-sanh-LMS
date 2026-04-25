@@ -1,0 +1,15 @@
+
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  LECTURER = 'LECTURER',
+  STUDENT = 'STUDENT',
+  GUEST = 'GUEST',
+  DEPARTMENT_HEAD = "DEPARTMENT HEAD"
+}
+
+export enum AccountStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  LOCKED = 'LOCKED',
+  PENDING = 'PENDING',
+}

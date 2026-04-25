@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>LMS Staff — Quản lý khóa học</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="layout">
+  <%- include('../partials/staff-topbar') %>
+  <div class="layout-body">
+    <%- include('../partials/staff-sidebar', { activeMenu: 'classes' }) %>
+    <main class="layout-main">
+      <div class="max-content">
+
+        <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h1 class="page-title">Quản lý Khóa học / Lớp học</h1>
+            <p class="page-subtitle">Vai trò hiện tại: <strong style="color:#fff;"><%= typeof userRole !== 'undefined' && userRole === 'HEAD_OF_DEPARTMENT' ? 'Trưởng bộ môn' : 'Giảng viên' %></strong></p>
+          </div>
+          <button class="btn btn-green" data-modal-open="modal-create-course">+ Tạo khóa học mới</button>
+        </div>
+
+        <% if (updated) { %>
+          <div class="card" style="padding:.75rem 1rem;border-color:rgba(35,134,54,.4);background:rgba(35,134,54,.12);margin-bottom:1rem;color:#9be9a8;">
+            Cập nhật khóa học thành công.
+          </div>
+        <% } %>
+        <% if (error) { %>
+          <div class="card" style="padding:.75rem 1rem;border-color:rgba(248,81,73,.45);background:rgba(248,81,73,.12);margin-bottom:1rem;color:#ffb4ad;">
+            <%= error %>
+          </div>
+        <% } %>
+
+        <% if (!courses || courses.length === 0) { %>
+          <div style="text-align:center;color:#8b949e;padding:3rem 0;">
+            <p>Chưa có khóa học nào.</p>
+          </div>
+        <% } else { %>
+        <div class="grid-3">
+          <% courses.forEach(function(c){ %>
+          <div class="card js-course-card" data-href="/staff/courses/<%= c.id %>" role="link" tabindex="0" style="display:flex;flex-direction:column;padding:1.25rem;cursor:pointer;">
+            <h3 style="font-size:1rem;font-weight:600;color:#fff;line-height:1.4;margin-bottom:1rem;"><%= c.title %></h3>
+
+            <div style="margin-bottom:.75rem;">
+              <% if (c.status === 'published' || c.status === 'PUBLISHED') { %>
+                <span class="badge badge-green">Đang hoạt động</span>
+              <% } else if (c.status === 'pending' || c.status === 'PENDING') { %>
+                <span class="badge badge-yellow">Dự kiến mở (Chờ duyệt)</span>
+              <% } else if (c.status === 'closed' || c.status === 'CLOSED') { %>
+                <span class="badge badge-red">Đã đóng</span>
+              <% } else { %>
+                <span class="badge badge-blue">Bản nháp</span>
+              <% } %>
+            </div>
+
+            <!-- Tên người tạo / Vai trò -->
+            <div style="margin-bottom:1rem; font-size:0.8rem; color:var(--text-muted);">
+              <% if (c.createdBy) { %>
+                <p>👤 Giảng viên: <%= c.createdBy.fullname || c.createdBy.email || 'N/A' %></p>
+              <% } %>
+              <p>Trạng thái thực: <strong><%= c.status %></strong></p>
+            </div>
+
+            <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;">
+              <!-- Nút phê duyệt dành cho Head of Dept -->
+              <% if ((c.status === 'pending' || c.status === 'PENDING') && userRole === 'HEAD_OF_DEPARTMENT') { %>
+                <form method="POST" action="/staff/courses/<%= c.id %>/update">
+                  <input type="hidden" name="status" value="published" />
+                  <button class="btn btn-green btn-block" style="justify-content:center;" type="submit">✓ Phê duyệt mở lớp</button>
+                </form>
+              <% } %>
+              <div style="display:flex;gap:8px;">
+                <a href="/staff/courses/<%= c.id %>" class="btn btn-ghost" style="flex:1;justify-content:center;">Chỉnh sửa</a>
+                <form method="POST" action="/staff/courses/<%= c.id %>/delete" onsubmit="return confirm('Bạn có chắc muốn xóa khóa học này?');">
+                  <button class="btn btn-red btn-sm" type="submit">Xóa</button>
+                </form>
+              </div>
+            </div>
+          </div>
+          <% }) %>
+        </div>
+        <% } %>
+
+      </div>
+    </main>
+  </div>
+  <footer class="layout-footer">
+    <span>Copyright © 2026 TDTU. All rights reserved.</span>
+    <span>Portal Giảng Viên v2.1</span>
+  </footer>
+</div>
+
+<!-- Modal create course -->
+<div id="modal-create-course" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Tạo khóa học mới</span>
+      <button class="modal-close" data-modal-close="modal-create-course">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Tên khóa học</label>
+        <input type="text" class="form-input" id="new-course-name" placeholder="Nhập tên khóa học...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Danh mục</label>
+        <select class="form-input form-select" id="new-course-cat">
+          <option>Công nghệ thông tin</option>
+          <option>Ngoại ngữ</option>
+          <option>Kinh tế - Quản trị</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mô tả ngắn</label>
+        <textarea class="form-input form-textarea" rows="3" placeholder="Mô tả khóa học..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-modal-close="modal-create-course">Hủy</button>
+      <button class="btn btn-green" onclick="createCourse()">Tạo khóa học</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/main.js"></script>
+<script>
+function voteForCourse(id) { showToast('Đã bỏ phiếu ủng hộ!'); }
+function createCourse() { showToast('Đã tạo khóa học mới!'); closeModal('modal-create-course'); }
+
+document.querySelectorAll('.js-course-card').forEach((card) => {
+  const href = card.getAttribute('data-href');
+  if (!href) return;
+
+  card.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest('a,button,form,input,select,textarea,label')) {
+      return;
+    }
+    window.location.href = href;
+  });
+
+  card.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      window.location.href = href;
+    }
+  });
+});
+</script>
+</body>
+</html>
