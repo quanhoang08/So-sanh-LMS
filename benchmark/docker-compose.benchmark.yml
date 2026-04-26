@@ -169,54 +169,6 @@ services:
     networks:
       - benchmark-net
 
-  # =====================
-  #  MONITORING STACK
-  # =====================
-  prometheus:
-    image: prom/prometheus
-    container_name: benchmark_prometheus
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    depends_on:
-      cadvisor:
-        condition: service_started
-    ports:
-      - "9090:9090"
-    networks:
-      - benchmark-net
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
-    container_name: benchmark_cadvisor
-    ports:
-      - "8081:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    networks:
-      - benchmark-net
-
-  grafana:
-    image: grafana/grafana
-    container_name: benchmark_grafana
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_USERS_ALLOW_SIGN_UP: "false"
-    volumes:
-      - ./grafana/provisioning/datasources/prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
-      - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-    ports:
-      - "3001:3000"
-    depends_on:
-      prometheus:
-        condition: service_started
-    networks:
-      - benchmark-net
-
 networks:
   benchmark-net:
     driver: bridge

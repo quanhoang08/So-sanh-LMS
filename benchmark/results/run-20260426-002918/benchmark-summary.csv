@@ -1,0 +1,3 @@
+﻿"architecture","runs","rps_avg","avg_ms_avg","p95_ms_avg","p99_ms_avg","cpu_percent_avg"
+"Monolith","3","199.843","17.636","46.993","105.181","31.678"
+"Microservices","3","201.71","14.575","43.299","76.057","103.283"
