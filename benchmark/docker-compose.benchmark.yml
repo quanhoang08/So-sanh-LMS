@@ -6,10 +6,8 @@ services:
     build:
       context: ../LMS-monolithic
       dockerfile: Dockerfile
-    container_name: benchmark_monolith
-    ports:
-      # Expose monolith API on :3000 for tests
-      - "3000:3001"
+    container_name: benchmark_download_monolith
+    # No host port exposure needed; benchmark-router routes internally.
     env_file:
       - ../LMS-monolithic/.env
     environment:
@@ -22,11 +20,11 @@ services:
       monolith-db:
         condition: service_healthy
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   monolith-db:
     image: postgres:15-alpine
-    container_name: benchmark_monolith_db
+    container_name: benchmark_download_monolith_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123456
@@ -37,14 +35,14 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   # =====================
   #  MICROSERVICES STACK
   # =====================
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: benchmark_rabbitmq
+    container_name: benchmark_download_rabbitmq
     environment:
       - RABBITMQ_ERLANG_COOKIE=LMS_SECRET_COOKIE
     healthcheck:
@@ -53,11 +51,11 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   academic-db:
     image: postgres:15-alpine
-    container_name: benchmark_academic_db
+    container_name: benchmark_download_academic_db
     environment:
       POSTGRES_DB: lms_academic
       POSTGRES_PASSWORD: 123456
@@ -69,13 +67,13 @@ services:
       interval: 5s
       retries: 5
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   academic-service:
     build:
       context: ../LMS-microservice/AcademicService
       dockerfile: Dockerfile
-    container_name: benchmark_academic_service
+    container_name: benchmark_download_academic_service
     env_file:
       - ../LMS-microservice/AcademicService/.env
     depends_on:
@@ -84,11 +82,11 @@ services:
       rabbitmq:
         condition: service_healthy
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   account-db:
     image: postgres:15-alpine
-    container_name: benchmark_account_db
+    container_name: benchmark_download_account_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123456
@@ -101,13 +99,13 @@ services:
       interval: 10s
       retries: 5
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   account-service:
     build:
       context: ../LMS-microservice/AccountService
       dockerfile: Dockerfile
-    container_name: benchmark_account_service
+    container_name: benchmark_download_account_service
     env_file:
       - ../LMS-microservice/AccountService/.env
     ports:
@@ -118,11 +116,11 @@ services:
       rabbitmq:
         condition: service_healthy
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   course-db:
     image: postgres:15-alpine
-    container_name: benchmark_course_db
+    container_name: benchmark_download_course_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123456
@@ -135,13 +133,13 @@ services:
       interval: 10s
       retries: 5
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   course-service:
     build:
       context: ../LMS-microservice/CourseService
       dockerfile: Dockerfile
-    container_name: benchmark_course_service
+    container_name: benchmark_download_course_service
     env_file:
       - ../LMS-microservice/CourseService/.env
     ports:
@@ -152,14 +150,12 @@ services:
       rabbitmq:
         condition: service_healthy
     networks:
-      - benchmark-net
+      - benchmark-download-net
 
   api-gateway:
     image: nginx:alpine
-    container_name: benchmark_api_gateway
-    ports:
-      # Expose microservices API on :4000 for tests
-      - "4000:80"
+    container_name: benchmark_download_api_gateway
+    # No host port exposure needed; benchmark-router routes internally.
     volumes:
       - ../LMS-microservice/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -167,10 +163,24 @@ services:
       - academic-service
       - course-service
     networks:
-      - benchmark-net
+      - benchmark-download-net
+
+  benchmark-router:
+    image: nginx:alpine
+    container_name: benchmark_download_router
+    ports:
+      # Unified benchmark entrypoint for both architectures
+      - "5000:80"
+    volumes:
+      - ./nginx.benchmark-router.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - monolith
+      - api-gateway
+    networks:
+      - benchmark-download-net
 
 networks:
-  benchmark-net:
+  benchmark-download-net:
     driver: bridge
 
 volumes:

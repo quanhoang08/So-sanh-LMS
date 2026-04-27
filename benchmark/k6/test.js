@@ -12,20 +12,26 @@ export const options = {
 
 // Toggle this flag to switch between monolith and microservices benchmark
 const USE_MONOLITH = __ENV.USE_MONOLITH === 'true';
+const TARGET_ARCH = (__ENV.TARGET_ARCH || (USE_MONOLITH ? 'monolith' : 'microservices')).toLowerCase();
 
-const MONOLITH_BASE_URL = 'http://host.docker.internal:3000';
-const MICRO_BASE_URL = 'http://host.docker.internal:4000';
+// Unified benchmark ingress for both architectures
+const BENCHMARK_BASE_URL = 'http://host.docker.internal:5000';
 
 export default function () {
-  const baseUrl = USE_MONOLITH ? MONOLITH_BASE_URL : MICRO_BASE_URL;
+  const baseUrl = BENCHMARK_BASE_URL;
   const expectedStatuses = http.expectedStatuses({ min: 200, max: 499 });
+  const commonHeaders = {
+    'X-Benchmark-Target': TARGET_ARCH,
+  };
 
   // Example scenarios for LMS
   http.get(`${baseUrl}/api/v1/courses`, {
+    headers: commonHeaders,
     responseCallback: expectedStatuses,
     redirects: 0,
   });
   http.get(`${baseUrl}/api/v1/courses/1`, {
+    headers: commonHeaders,
     responseCallback: expectedStatuses,
     redirects: 0,
   });
@@ -36,7 +42,7 @@ export default function () {
       password: 'password123',
     }),
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...commonHeaders, 'Content-Type': 'application/json' },
       responseCallback: expectedStatuses,
       redirects: 0,
     },
@@ -48,7 +54,7 @@ export default function () {
       studentId: 1,
     }),
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...commonHeaders, 'Content-Type': 'application/json' },
       responseCallback: expectedStatuses,
       redirects: 0,
     },

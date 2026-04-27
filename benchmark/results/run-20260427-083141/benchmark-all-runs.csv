@@ -1,0 +1,7 @@
+﻿"timestamp","architecture","run","rps","http_reqs_count","avg_ms","p95_ms","p99_ms","avg_cpu_percent","cpu_samples","summary_json","k6_log","cpu_samples_csv"
+"2026-04-27T08:34:22.3974595+07:00","Monolith","1","199.455","18572","13.39","44.654","65.456","0.672","25","monolith-run1-summary.json","monolith-run1-k6.log","monolith-run1-cpu-samples.csv"
+"2026-04-27T08:37:04.7700788+07:00","Microservices","1","196.806","18368","14.662","48.654","83.517","88.63","24","microservices-run1-summary.json","microservices-run1-k6.log","microservices-run1-cpu-samples.csv"
+"2026-04-27T08:39:45.4385864+07:00","Monolith","2","201.181","18780","10.79","34.432","61.033","0.951","26","monolith-run2-summary.json","monolith-run2-k6.log","monolith-run2-cpu-samples.csv"
+"2026-04-27T08:42:22.4196686+07:00","Microservices","2","197.011","18408","14.783","51.459","117.964","73.252","23","microservices-run2-summary.json","microservices-run2-k6.log","microservices-run2-cpu-samples.csv"
+"2026-04-27T08:45:01.8616532+07:00","Monolith","3","197.954","18476","12.974","41.281","87.035","0.453","27","monolith-run3-summary.json","monolith-run3-k6.log","monolith-run3-cpu-samples.csv"
+"2026-04-27T08:47:42.5465139+07:00","Microservices","3","200.684","18728","11.627","35.338","54.833","63.784","24","microservices-run3-summary.json","microservices-run3-k6.log","microservices-run3-cpu-samples.csv"

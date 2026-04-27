@@ -1,27 +1,34 @@
-# LMS Benchmark Guide (Monolith vs Microservices)
+# LMS Benchmark Guide
 
-Tai lieu nay su dung 1 flow don gian:
+Tai lieu nay dung de benchmark `Monolith` va `Microservices` theo cung mot cach goi request.
 
-1. Chay benchmark bang `k6` (thong qua `export-benchmark.ps1`)
-2. Xuat ket qua ra CSV/JSON
-3. Ve chart bang Python (`plot_results.py`) ra file PNG/JPG
+## 1) Nguyen tac so sanh
 
-> Khong phu thuoc vao Prometheus/Grafana trong flow chinh.
+Ca 2 kien truc deu duoc goi qua cung 1 cong logic:
 
-## 1) Muc tieu benchmark
+- `http://localhost:5000`
 
-So sanh hieu nang 2 kien truc:
+Cong `5000` la `benchmark-router` trong `benchmark/docker-compose.benchmark.yml`.
+Router nay doc header `X-Benchmark-Target` de chuyen request den dung kien truc:
 
-- Monolith (`http://localhost:3000`)
-- Microservices qua API Gateway (`http://localhost:4000`)
+- `monolith` -> route den Monolith
+- `microservices` -> route den API Gateway cua Microservices
 
-Metric can so sanh:
+Nghia la khi benchmark:
+
+- cung host
+- cung cong vao
+- cung API path
+
+Chi khac dich den ben trong he thong.
+
+## 2) Metric dang so sanh
 
 - Throughput: `rps`
 - Latency: `avg_ms`, `p95_ms`, `p99_ms`
 - CPU trung binh: `avg_cpu_percent`
 
-## 2) Chuan bi va khoi dong stack
+## 3) Khoi dong benchmark stack (`benchmark-download`)
 
 ```powershell
 cd C:\DuAnCntt\benchmark
@@ -29,170 +36,89 @@ docker compose -f docker-compose.benchmark.yml up -d --build
 docker compose -f docker-compose.benchmark.yml ps
 ```
 
-Neu container chua on dinh, cho them 20-60 giay roi moi chay benchmark.
+Luu y:
 
-## 3) Chay benchmark va xuat ket qua
+- Benchmark stack chi can host port `5000`.
+- Cac service ben trong benchmark khong publish `3000` hoac `4000` ra host nua.
+- Co the chay song song voi stack dev neu host port `5000` chua bi dung.
+- Cac container benchmark duoc dat prefix `benchmark_download_*` de tranh trung ten khi copy du an.
 
-### Lenh khuyen nghi (3 runs)
+## 4) Chay benchmark
+
+Lenh khuyen nghi:
 
 ```powershell
 cd C:\DuAnCntt\benchmark
 powershell -ExecutionPolicy Bypass -File .\export-benchmark.ps1 -Runs 3 -SampleIntervalSec 2
 ```
 
-### Giai thich tham so
+Tham so:
 
-- `Runs`: so lan test cho moi kien truc.
-  - `Runs 3` = Monolith run1..3 + Microservices run1..3
-- `SampleIntervalSec`: chu ky lay mau CPU bang `docker stats`.
-- `Rebuild`: rebuild image truoc benchmark (chi dung khi vua sua code/runtime).
-  - Vi du:
-    ```powershell
-    powershell -ExecutionPolicy Bypass -File .\export-benchmark.ps1 -Runs 1 -Rebuild
-    ```
+- `Runs`: so lan test cho moi kien truc
+- `SampleIntervalSec`: chu ky lay mau CPU bang `docker stats`
+- `Rebuild`: build lai image truoc khi benchmark
 
-### Luu y de ket qua on dinh
-
-- Neu benchmark lap lai nhieu lan, tranh dung `-Rebuild` moi lan.
-- Dong bot app nang (IDE tabs khong can thiet, browser tabs nang, vm khac...).
-- Uu tien chay benchmark khi may khong dang build task khac.
-
-## 4) Script `export-benchmark.ps1` hoat dong nhu the nao?
-
-Script tu dong hoa toan bo quy trinh:
-
-1. Dam bao stack benchmark dang chay.
-2. Chay k6 cho Monolith.
-3. Trong luc k6 chay, lay mau CPU theo `SampleIntervalSec`.
-4. Chay k6 cho Microservices.
-5. Trong luc k6 chay, lay mau CPU theo `SampleIntervalSec`.
-6. Trich metric tu JSON summary cua k6.
-7. Xuat du lieu chi tiet tung run vao CSV.
-8. Tong hop trung binh theo kien truc vao CSV summary.
-
-## 5) Cau truc thu muc `results` va y nghia tung file
-
-Moi lan chay se tao folder:
-
-`results/run-YYYYMMDD-HHMMSS/`
-
-Ben trong:
-
-- `benchmark-all-runs.csv`
-  - 1 dong = 1 run cua 1 kien truc.
-  - Cot quan trong:
-    - `architecture`: Monolith/Microservices
-    - `run`: so thu tu run
-    - `rps`, `avg_ms`, `p95_ms`, `p99_ms`
-    - `avg_cpu_percent`
-    - `summary_json`, `k6_log`, `cpu_samples_csv` (ten file lien quan)
-
-- `benchmark-summary.csv`
-  - Tong hop trung binh theo kien truc.
-  - Thuong co cac cot dang `*_avg` (vi du `rps_avg`, `p95_ms_avg`...).
-  - Day la file de dua vao bang ket qua bao cao.
-
-- `monolith-runN-summary.json`, `microservices-runN-summary.json`
-  - Output goc cua k6, dung de audit metric chi tiet.
-  - Co the xoa neu chi can CSV tong hop, nhung nen giu lai khi can doi chieu.
-
-- `monolith-runN-k6.log`, `microservices-runN-k6.log`
-  - Log console cua k6, dung debug khi run loi/timeout.
-
-- `monolith-runN-cpu-samples.csv`, `microservices-runN-cpu-samples.csv`
-  - Mau CPU theo thoi gian va container.
-  - Dung de ve chart CPU chi tiet theo container.
-
-## 6) Ve chart bang Python (PNG/JPG)
-
-Script da co san: `plot_results.py`
-
-### Cai thu vien (neu chua co)
-
-```powershell
-python -m pip install pandas matplotlib
-```
-
-### Ve chart cho run moi nhat
-
-```powershell
-cd C:\DuAnCntt\benchmark
-python .\plot_results.py --results-dir .\results --formats png,jpg
-```
-
-### Ve chart cho 1 run cu the
-
-```powershell
-python .\plot_results.py --run-dir .\results\run-YYYYMMDD-HHMMSS --formats png
-```
-
-### Output chart
-
-Tat ca chart duoc luu tai:
-
-`results/run-YYYYMMDD-HHMMSS/charts/`
-
-Vi du:
-
-- `rps.png` / `rps.jpg`
-- `latency_avg_ms.png`
-- `latency_p95_ms.png`
-- `latency_p99_ms.png`
-- `avg_cpu_percent.png`
-- `runs_rps.png`
-- `runs_avg_ms.png`
-- `runs_p95_ms.png`
-- `runs_avg_cpu_percent.png`
-- `*-cpu-samples_by_container.png`
-
-## 7) Cach phan tich ket qua trong `result`
-
-### Buoc 1: Nhin nhanh tu `benchmark-summary.csv`
-
-So sanh 2 kien truc theo quy tac:
-
-- `rps_avg`: cao hon la tot hon.
-- `avg_ms_avg`, `p95_ms_avg`, `p99_ms_avg`: thap hon la tot hon.
-- `cpu_percent_avg`: thap hon la tiet kiem tai nguyen hon.
-
-### Buoc 2: Kiem tra do on dinh tu `benchmark-all-runs.csv`
-
-- Xem run nao bat thuong (latency tang dot bien, rps giam manh).
-- Neu 1 kien truc dao dong qua lon giua run1/run2/run3 -> do on dinh kem.
-- Uu tien ket luan dua tren xu huong trung binh + do dao dong.
-
-### Buoc 3: Doi chieu CPU theo service
-
-- Mo `*-cpu-samples.csv` hoac chart `*_by_container`.
-- Xac dinh container/service nao la bottleneck.
-- Neu Microservices rps tot hon nhung CPU cao hon rat nhieu, can ghi ro trade-off.
-
-### Mau ket luan ngan cho bao cao
-
-- "Microservices cao hon X% RPS, latency p95 thap hon Y%, nhung CPU cao hon Z% so voi Monolith."
-- "Monolith co do on dinh cao hon giua cac run, phu hop tai nguyen han che."
-
-## 8) Lenh nhanh thuong dung
-
-### Chay benchmark 1 run (test nhanh)
+Vi du test nhanh 1 run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\export-benchmark.ps1 -Runs 1 -SampleIntervalSec 2
 ```
 
-### Chay benchmark 3 runs (bao cao)
+## 5) Script dang hoat dong nhu the nao
+
+`export-benchmark.ps1` se:
+
+1. Dam bao benchmark stack dang chay
+2. Health-check qua `http://localhost:5000`
+3. Chay k6 cho Monolith voi header route tuong ung
+4. Lay mau CPU trong luc test
+5. Chay k6 cho Microservices voi cung endpoint benchmark
+6. Xuat CSV va JSON summary
+
+`k6/test.js` luon goi vao `http://host.docker.internal:5000` va gan header `X-Benchmark-Target` de chon kien truc.
+
+## 6) Ket qua duoc luu o dau
+
+Moi lan chay tao 1 thu muc:
+
+`results/run-YYYYMMDD-HHMMSS/`
+
+File quan trong:
+
+- `benchmark-summary.csv`: tong hop trung binh theo kien truc
+- `benchmark-all-runs.csv`: du lieu chi tiet tung run
+- `monolith-runN-summary.json`, `microservices-runN-summary.json`: summary goc cua k6
+- `monolith-runN-k6.log`, `microservices-runN-k6.log`: log debug
+- `*-cpu-samples.csv`: mau CPU theo thoi gian
+
+## 7) Ve chart
+
+Neu chua co thu vien:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\export-benchmark.ps1 -Runs 3 -SampleIntervalSec 2
+python -m pip install pandas matplotlib
 ```
 
-### Ve chart PNG + JPG
+Ve chart cho ket qua moi nhat:
 
 ```powershell
+cd C:\DuAnCntt\benchmark
 python .\plot_results.py --results-dir .\results --formats png,jpg
 ```
 
-### Tat stack
+## 8) Cach doc ket qua
+
+- `rps_avg` cao hon la tot hon
+- `avg_ms_avg`, `p95_ms_avg`, `p99_ms_avg` thap hon la tot hon
+- `cpu_percent_avg` thap hon la tiet kiem tai nguyen hon
+
+Nen ket hop:
+
+- `benchmark-summary.csv` de nhin xu huong tong quan
+- `benchmark-all-runs.csv` de xem do on dinh giua cac run
+- `*-cpu-samples.csv` de xac dinh service nao ton CPU nhieu
+
+## 9) Tat benchmark stack
 
 ```powershell
 docker compose -f docker-compose.benchmark.yml down

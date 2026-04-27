@@ -42,6 +42,9 @@ services:
   academic-service:
     build: ./AcademicService
     container_name: academic_service
+    init: true
+    stop_signal: SIGINT
+    stop_grace_period: 20s
     env_file:
       - './AcademicService/.env' # Sử dụng file cấu hình của bạn
     depends_on:
@@ -77,8 +80,12 @@ services:
       context: ./AccountService
       dockerfile: Dockerfile
     container_name: account_service
+    init: true
+    stop_signal: SIGINT
+    stop_grace_period: 20s
     ports:
-      - "3001:3001"
+      # Use non-conflicting host port by default; configurable via ACCOUNT_SERVICE_PORT.
+      - "${ACCOUNT_SERVICE_PORT:-3101}:3001"
     env_file:
       - ./AccountService/.env
     depends_on:
@@ -112,8 +119,12 @@ services:
       context: ./CourseService
       dockerfile: Dockerfile
     container_name: course_service
+    init: true
+    stop_signal: SIGINT
+    stop_grace_period: 20s
     ports:
-      - "3002:3002"
+      # Use non-conflicting host port by default; configurable via COURSE_SERVICE_PORT.
+      - "${COURSE_SERVICE_PORT:-3202}:3002"
     env_file:
     - ./CourseService/.env
     depends_on:
@@ -132,6 +143,9 @@ services:
       args:
         - VITE_API_URL=http://localhost:8080
     container_name: lms_frontend
+    init: true
+    stop_signal: SIGINT
+    stop_grace_period: 20s
     ports:
       - "5173:5173"
     volumes:

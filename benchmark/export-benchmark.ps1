@@ -41,13 +41,14 @@ function Get-MetricValue {
 function Wait-Endpoint {
   param(
     [string]$Url,
+    [hashtable]$Headers = @{},
     [int]$TimeoutSec = 60
   )
 
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   while ((Get-Date) -lt $deadline) {
     try {
-      $resp = Invoke-WebRequest -Uri $Url -Method GET -TimeoutSec 5 -MaximumRedirection 0
+      $resp = Invoke-WebRequest -Uri $Url -Method GET -Headers $Headers -TimeoutSec 5 -MaximumRedirection 0
       if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500) { return }
     } catch {
       # Keep waiting until timeout.
@@ -70,30 +71,29 @@ function Run-OneCase {
   $jsonPath = Join-Path $OutputDir "$slug-run$RunIndex-summary.json"
   $logPath = Join-Path $OutputDir "$slug-run$RunIndex-k6.log"
   $cpuSamplesPath = Join-Path $OutputDir "$slug-run$RunIndex-cpu-samples.csv"
+  $benchmarkTarget = if ($Architecture -eq "Monolith") { "monolith" } else { "microservices" }
 
   "timestamp,architecture,run,container,cpu_percent" | Out-File -FilePath $cpuSamplesPath -Encoding utf8
 
-  if ($Architecture -eq "Monolith") {
-    Wait-Endpoint -Url "http://localhost:3000/api/v1/courses" -TimeoutSec 60
-  } else {
-    Wait-Endpoint -Url "http://localhost:4000/api/v1/courses" -TimeoutSec 60
-  }
+  Wait-Endpoint -Url "http://localhost:5000/api/v1/courses" -Headers @{ "X-Benchmark-Target" = $benchmarkTarget } -TimeoutSec 60
 
   $runFolderName = Split-Path -Leaf $OutputDir
   $jsonPathInContainer = "/work/results/$runFolderName/$slug-run$RunIndex-summary.json"
+  $workDir = (Resolve-Path -Path ".").Path
 
-  $argumentList = @(
+  $dockerArgsText = @(
     "run", "--rm",
     "-e", "USE_MONOLITH=$UseMonolithValue",
-    "-v", "${PWD}:/work",
+    "-e", "TARGET_ARCH=$benchmarkTarget",
+    "-v", "`"${workDir}:/work`"",
     "-w", "/work",
     "grafana/k6",
     "run",
     "--summary-export", $jsonPathInContainer,
     "k6/test.js"
-  )
+  ) -join " "
 
-  $k6 = Start-Process -FilePath "docker" -ArgumentList $argumentList -NoNewWindow -RedirectStandardOutput $logPath -PassThru
+  $k6 = Start-Process -FilePath "docker" -ArgumentList $dockerArgsText -NoNewWindow -RedirectStandardOutput $logPath -PassThru
   $cpuTotals = New-Object 'System.Collections.Generic.List[double]'
 
   while (-not $k6.HasExited) {
@@ -116,7 +116,9 @@ function Run-OneCase {
     $k6.Refresh()
   }
 
-  if ($k6.ExitCode -ne 0 -and -not (Test-Path $jsonPath)) {
+  $k6ExitCode = $k6.ExitCode
+
+  if ($k6ExitCode -ne 0 -and -not (Test-Path $jsonPath)) {
     throw "k6 failed for $Architecture run $RunIndex. Check $logPath"
   }
 
@@ -155,20 +157,20 @@ $allRows = @()
 for ($i = 1; $i -le $Runs; $i++) {
   Write-Host "Run $i/$Runs - Monolith"
   $allRows += Run-OneCase -Architecture "Monolith" -UseMonolithValue "true" -TargetContainers @(
-    "benchmark_monolith",
-    "benchmark_monolith_db"
+    "benchmark_download_monolith",
+    "benchmark_download_monolith_db"
   ) -OutputDir $runDir -RunIndex $i -SampleIntervalSec $SampleIntervalSec
 
   Write-Host "Run $i/$Runs - Microservices"
   $allRows += Run-OneCase -Architecture "Microservices" -UseMonolithValue "false" -TargetContainers @(
-    "benchmark_api_gateway",
-    "benchmark_account_service",
-    "benchmark_course_service",
-    "benchmark_academic_service",
-    "benchmark_account_db",
-    "benchmark_course_db",
-    "benchmark_academic_db",
-    "benchmark_rabbitmq"
+    "benchmark_download_api_gateway",
+    "benchmark_download_account_service",
+    "benchmark_download_course_service",
+    "benchmark_download_academic_service",
+    "benchmark_download_account_db",
+    "benchmark_download_course_db",
+    "benchmark_download_academic_db",
+    "benchmark_download_rabbitmq"
   ) -OutputDir $runDir -RunIndex $i -SampleIntervalSec $SampleIntervalSec
 }
 
