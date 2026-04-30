@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -49,13 +49,25 @@ def normalize_architecture(name: str) -> str:
     return "Monolith"
 
 
-def plot_summary(summary_csv: Path, out_dir: Path, formats: List[str]) -> List[Path]:
+def plot_summary(
+    summary_csv: Path, out_dir: Path, formats: List[str], summary_user: Optional[int] = None
+) -> List[Path]:
     df = pd.read_csv(summary_csv)
     if "architecture" not in df.columns:
         raise ValueError(f"{summary_csv} khong co cot 'architecture'.")
 
     df["architecture"] = df["architecture"].apply(normalize_architecture)
-    df = df.set_index("architecture")
+    has_users = "users" in df.columns
+    if has_users:
+        df["users"] = pd.to_numeric(df["users"], errors="coerce")
+        df = df.dropna(subset=["users"])
+        df["users"] = df["users"].astype(int)
+        if summary_user is not None:
+            df = df[df["users"] == summary_user]
+            if df.empty:
+                raise ValueError(
+                    f"Khong co du lieu users={summary_user} trong {summary_csv.name}."
+                )
 
     metrics = [
         (["rps", "rps_avg"], "Throughput (RPS)", "rps"),
@@ -70,13 +82,37 @@ def plot_summary(summary_csv: Path, out_dir: Path, formats: List[str]) -> List[P
         col = next((c for c in candidates if c in df.columns), None)
         if col is None:
             continue
-        # Keep a consistent y-axis label regardless of source column alias.
-        y_label = candidates[0]
-        ax = df[col].plot(kind="bar", rot=0, figsize=(7, 4), color=["#4C78A8", "#F58518"])
-        ax.set_title(title)
-        ax.set_xlabel("Architecture")
-        ax.set_ylabel(y_label)
-        ax.grid(axis="y", linestyle="--", alpha=0.35)
+        y_label = candidates[0]  # Keep a stable axis label across alias columns.
+
+        if has_users and summary_user is None:
+            grouped = (
+                df.groupby(["users", "architecture"], as_index=False)[col]
+                .mean()
+                .sort_values(["users", "architecture"])
+            )
+            if grouped.empty:
+                continue
+            pivot = grouped.pivot(index="users", columns="architecture", values=col)
+            ax = pivot.plot(marker="o", figsize=(8, 4))
+            ax.set_title(title)
+            ax.set_xlabel("Number of Users")
+            ax.set_ylabel(y_label)
+            ax.grid(True, linestyle="--", alpha=0.35)
+        else:
+            view = (
+                df.groupby("architecture", as_index=False)[col]
+                .mean()
+                .set_index("architecture")
+            )
+            ax = view[col].plot(
+                kind="bar", rot=0, figsize=(7, 4), color=["#4C78A8", "#F58518"]
+            )
+            suffix = f" (users={summary_user})" if summary_user is not None else ""
+            ax.set_title(f"{title}{suffix}")
+            ax.set_xlabel("Architecture")
+            ax.set_ylabel(y_label)
+            ax.grid(axis="y", linestyle="--", alpha=0.35)
+
         plt.tight_layout()
         saved.extend(save_current_figure(out_dir, stem, formats))
         plt.close()
@@ -86,33 +122,54 @@ def plot_summary(summary_csv: Path, out_dir: Path, formats: List[str]) -> List[P
 
 def plot_all_runs(all_runs_csv: Path, out_dir: Path, formats: List[str]) -> List[Path]:
     df = pd.read_csv(all_runs_csv)
-    needed = {"architecture", "run"}
+    needed = {"architecture", "users"}
     if not needed.issubset(df.columns):
         raise ValueError(f"{all_runs_csv} can cac cot: {sorted(needed)}")
 
     df["architecture"] = df["architecture"].apply(normalize_architecture)
-    df["run"] = pd.to_numeric(df["run"], errors="coerce")
-    df = df.sort_values(["architecture", "run"])
-
-    metrics = [
-        ("rps", "RPS per Run", "runs_rps"),
-        ("avg_ms", "Avg Latency per Run (ms)", "runs_avg_ms"),
-        ("p95_ms", "P95 Latency per Run (ms)", "runs_p95_ms"),
-        ("avg_cpu_percent", "Avg CPU per Run (%)", "runs_avg_cpu_percent"),
-    ]
+    df["users"] = pd.to_numeric(df["users"], errors="coerce")
+    df = df.sort_values(["architecture", "users"])
+    grouped = (
+        df.groupby(["users", "architecture"], as_index=False)[
+            ["rps", "avg_ms", "p95_ms", "p99_ms", "avg_cpu_percent"]
+        ]
+        .mean()
+    )
 
     saved: List[Path] = []
-    for col, title, stem in metrics:
-        if col not in df.columns:
-            continue
-        pivot = df.pivot(index="run", columns="architecture", values=col)
-        ax = pivot.plot(marker="o", figsize=(8, 4))
-        ax.set_title(title)
-        ax.set_xlabel("Run")
-        ax.set_ylabel(col)
+
+    if "rps" in grouped.columns:
+        pivot_rps = grouped.pivot(index="users", columns="architecture", values="rps")
+        ax = pivot_rps.plot(marker="o", figsize=(8, 4))
+        ax.set_title("Throughput vs Number of Users")
+        ax.set_xlabel("Number of Users")
+        ax.set_ylabel("Throughput (RPS)")
         ax.grid(True, linestyle="--", alpha=0.35)
         plt.tight_layout()
-        saved.extend(save_current_figure(out_dir, stem, formats))
+        saved.extend(save_current_figure(out_dir, "throughput", formats))
+        plt.close()
+
+    latency_col = "p95_ms" if "p95_ms" in grouped.columns else "avg_ms"
+    if latency_col in grouped.columns:
+        pivot_latency = grouped.pivot(index="users", columns="architecture", values=latency_col)
+        ax = pivot_latency.plot(marker="o", figsize=(8, 4))
+        ax.set_title("Response Time vs Number of Users")
+        ax.set_xlabel("Number of Users")
+        ax.set_ylabel("Response Time (ms)")
+        ax.grid(True, linestyle="--", alpha=0.35)
+        plt.tight_layout()
+        saved.extend(save_current_figure(out_dir, "response_time", formats))
+        plt.close()
+
+    if "avg_cpu_percent" in grouped.columns:
+        pivot_cpu = grouped.pivot(index="users", columns="architecture", values="avg_cpu_percent")
+        ax = pivot_cpu.plot(marker="o", figsize=(8, 4))
+        ax.set_title("CPU Usage vs Number of Users")
+        ax.set_xlabel("Number of Users")
+        ax.set_ylabel("CPU Usage (%)")
+        ax.grid(True, linestyle="--", alpha=0.35)
+        plt.tight_layout()
+        saved.extend(save_current_figure(out_dir, "cpu_usage", formats))
         plt.close()
 
     return saved
@@ -193,6 +250,12 @@ def main() -> None:
         default="png",
         help="Dinh dang anh, vi du: png hoặc png,jpg (mac dinh: png)",
     )
+    parser.add_argument(
+        "--summary-user",
+        type=int,
+        default=None,
+        help="Neu dat, chi ve summary cho 1 user cu the; mac dinh la ve theo tat ca users.",
+    )
     args = parser.parse_args()
     formats = [f.strip().lower() for f in args.formats.split(",") if f.strip()]
     allowed = {"png", "jpg", "jpeg"}
@@ -212,7 +275,7 @@ def main() -> None:
     all_runs_csv = run_dir / "benchmark-all-runs.csv"
 
     if summary_csv.exists():
-        saved.extend(plot_summary(summary_csv, out_dir, formats))
+        saved.extend(plot_summary(summary_csv, out_dir, formats, args.summary_user))
     else:
         print(f"[WARN] Khong tim thay {summary_csv.name}")
 

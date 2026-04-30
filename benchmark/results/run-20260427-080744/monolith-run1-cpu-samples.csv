@@ -1,3 +1,0 @@
-﻿timestamp,architecture,run,container,cpu_percent
-2026-04-27T08:08:47.8225427+07:00,Monolith,1,benchmark_download_monolith,0
-2026-04-27T08:08:47.8225427+07:00,Monolith,1,benchmark_download_monolith_db,3.41

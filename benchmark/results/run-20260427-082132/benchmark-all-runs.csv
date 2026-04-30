@@ -1,3 +1,0 @@
-﻿"timestamp","architecture","run","rps","http_reqs_count","avg_ms","p95_ms","p99_ms","avg_cpu_percent","cpu_samples","summary_json","k6_log","cpu_samples_csv"
-"2026-04-27T08:24:10.7178717+07:00","Monolith","1","204.662","19144","4.085","10.92","23.257","1.583","26","monolith-run1-summary.json","monolith-run1-k6.log","monolith-run1-cpu-samples.csv"
-"2026-04-27T08:26:49.9179228+07:00","Microservices","1","204.074","19004","5.474","16.764","26.147","139.931","24","microservices-run1-summary.json","microservices-run1-k6.log","microservices-run1-cpu-samples.csv"

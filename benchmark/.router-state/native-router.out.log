@@ -1,0 +1,1 @@
+[native-router] listening on http://127.0.0.1:5000 -> monolith=http://127.0.0.1:3001/ microservices=http://127.0.0.1:18080/
