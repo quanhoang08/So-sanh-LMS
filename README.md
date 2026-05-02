@@ -1,3 +1,10 @@
+#### Lưu ý về số lượng user (VU)
+
+Bạn có thể tăng số lượng user (VU) lên tới 2000 hoặc hơn để kiểm tra giới hạn throughput và response time của hệ thống. Tuy nhiên, cần đảm bảo máy đủ tài nguyên (RAM/CPU) và có thể phải điều chỉnh tham số `-UserLevels` hoặc `-ConcurrentDuration`/`-StageDuration` cho phù hợp. Tham khảo mode stress trong script để test tải cực lớn.
+#### Định nghĩa kịch bản `ramp`
+
+Kịch bản `ramp` là kiểu kiểm thử hiệu năng trong đó số lượng user (VU) sẽ tăng dần theo thời gian. Ví dụ: bắt đầu từ 1 user, sau đó cứ mỗi 10 giây lại tăng thêm 5 user cho đến khi đạt số lượng tối đa. Điều này giúp kiểm tra khả năng mở rộng và phản ứng của hệ thống khi tải tăng từ từ, phát hiện điểm nghẽn khi hệ thống bắt đầu quá tải.
+
 # So Sánh Hiệu Năng: Kiến Trúc Monolithic vs Microservices trên Hệ Thống LMS
 
 > **Dự án nghiên cứu** nhằm đo lường và so sánh hiệu năng (throughput, latency, CPU) giữa hai kiến trúc phần mềm phổ biến: **Monolithic** và **Microservices** trong bối cảnh hệ thống quản lý học tập (LMS – Learning Management System).
@@ -394,6 +401,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\export-benchmark.ps1 `
   -BaseUrl http://localhost:5000
 ```
 
+#### Phân biệt kịch bản `ramp` và `concurrent`
+
+- **concurrent**: Tất cả user (VU) bắt đầu gửi request cùng lúc, giữ tải đồng thời trong suốt thời gian test. Phù hợp để kiểm tra hệ thống chịu tải đồng thời lớn.
+- **ramp**: Số lượng user tăng dần theo thời gian (ví dụ: mỗi 10 giây tăng thêm 5 user), giúp kiểm tra khả năng mở rộng và phản ứng của hệ thống khi tải tăng từ từ.
+
+Ví dụ:
+       - `-ScenarioType concurrent`: 20 user cùng gửi request trong 2 phút.
+       - `-ScenarioType ramp`: Bắt đầu từ 1 user, tăng dần lên 20 user trong 2 phút.
+
 **Giải thích tham số:**
 
 | Tham số | Ý nghĩa | Giá trị mẫu |
@@ -432,14 +448,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\stop-native-router.ps1
 ```powershell
 cd "C:\Users\Quan Hoang\Downloads\DuAnCntt\benchmark"
 
-# Vẽ chart cho run mới nhất
+# Vẽ chart cho run mới nhất trong benchmark\results
 python .\plot_results.py --results-dir .\results --formats png,jpg
 
-# Vẽ chart cho một run cụ thể
+# Vẽ chart cho một run cụ thể đã có đủ benchmark-summary.csv và benchmark-all-runs.csv
 python .\plot_results.py --run-dir .\results\run-YYYYMMDD-HHMMSS --formats png
 ```
 
-Biểu đồ được tạo gồm: **Throughput (RPS)**, **Latency (avg / p95 / p99)**, **CPU Usage (%)**.
+Biểu đồ được tạo gồm: **Throughput (RPS)**, **Latency (avg / p95 / p99)**, **CPU Usage (%)** và các biểu đồ CPU timeline theo từng case trong run.
+
+Nếu run mới nhất chỉ có `*-cpu-samples.csv` mà chưa có `benchmark-summary.csv` và `benchmark-all-runs.csv`, hãy dùng `--run-dir` trỏ đúng vào một run hoàn chỉnh để vẽ đủ cả 3 tiêu chí.
 
 ---
 
@@ -543,6 +561,67 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\validate-run-output.ps1 `
 | Port `18080` bị sai (microservices) | Nhầm cổng 8080 và 18080 | Luôn truyền rõ `-MicroservicesBaseUrl http://127.0.0.1:18080` |
 | Container name conflict | Container cũ chưa xóa | Chạy `docker compose down` trước khi `up` |
 | DB chưa có dữ liệu | Script `01-init.sh` / `seed.sql` chưa chạy | Xóa volume và chạy lại: `docker compose down -v && docker compose up -d --build` |
+
+### Lỗi endpoint router hoặc HTTP_ERROR khi kiểm tra nhanh (one-click/info)
+
+| Lỗi | Nguyên nhân | Cách kiểm tra & khắc phục |
+|---|---|---|
+| `[FAIL] .../api/v1/courses -> HTTP_ERROR` | Native router chưa route đúng, microservices chưa chạy/healthy, sai cổng, hoặc Nginx chưa sẵn sàng | 
+1. **Kiểm tra trạng thái container microservices:**
+        ```powershell
+        cd LMS-microservice
+        docker compose ps
+        docker compose logs -f api-gateway
+        ```
+        Đảm bảo api_gateway chạy và lắng nghe đúng port 18080.
+2. **Kiểm tra trực tiếp endpoint gateway:**
+        ```powershell
+        curl.exe -v http://127.0.0.1:18080/api/v1/courses
+        ```
+        Nếu trả về 301, kiểm tra location header (có thể do thiếu `/` hoặc cấu hình Nginx).
+3. **Kiểm tra log router:**
+        ```powershell
+        cd benchmark
+        Get-Content .router-state\native-router.out.log -Tail 50
+        Get-Content .router-state\native-router.err.log -Tail 50
+        ```
+        Xem có lỗi kết nối hoặc lỗi route không.
+4. **Kiểm tra lại lệnh curl với header:**
+        ```powershell
+        curl.exe -v -H "X-Benchmark-Target: microservices" http://127.0.0.1:5000/api/v1/courses
+        ```
+        Nếu vẫn lỗi, kiểm tra lại log router và log api_gateway.
+5. **Đảm bảo đúng cổng:**
+        - Microservices phải là 18080, không phải 8080.
+        - Khi chạy one-click hoặc start-native-router, luôn truyền rõ `-MicroservicesBaseUrl http://127.0.0.1:18080`.
+
+#### Script kiểm tra nhanh tự động (PowerShell)
+
+Chạy đoạn sau để tự động kiểm tra các endpoint và log lỗi:
+
+```powershell
+$urls = @(
+       @{ Name = 'Monolith'; Url = 'http://127.0.0.1:3001/api/v1/courses' },
+       @{ Name = 'Microservices'; Url = 'http://127.0.0.1:18080/api/v1/courses' },
+       @{ Name = 'Router (monolith)'; Url = 'http://127.0.0.1:5000/api/v1/courses'; Header = @{ 'X-Benchmark-Target' = 'monolith' } },
+       @{ Name = 'Router (microservices)'; Url = 'http://127.0.0.1:5000/api/v1/courses'; Header = @{ 'X-Benchmark-Target' = 'microservices' } }
+)
+foreach ($u in $urls) {
+       try {
+              $headers = $u.Header
+              $r = Invoke-WebRequest -Uri $u.Url -Headers $headers -Method GET -UseBasicParsing -ErrorAction Stop
+              Write-Host "[PASS] $($u.Name): $($r.StatusCode)"
+       } catch {
+              Write-Host "[FAIL] $($u.Name): $($_.Exception.Message)"
+       }
+}
+Write-Host "--- Log router (nếu có lỗi router):"
+if (Test-Path .router-state\native-router.err.log) {
+       Get-Content .router-state\native-router.err.log -Tail 20
+}
+```
+
+Nếu có lỗi, thực hiện các bước kiểm tra/fix như trên.
 
 ---
 

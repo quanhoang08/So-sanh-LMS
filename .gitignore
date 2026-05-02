@@ -1,0 +1,22 @@
+# .gitignore
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.egg-info/
+.venv/
+venv/
+ENV/
+# Node
+node_modules/
+dist/
+# VSCode
+.vscode/
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

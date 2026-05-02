@@ -4,7 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 // Import các Feature Modules
 import { CourseModule } from './course/course.module';
-import { MaterialModule } from './material/material.module.';
+import { MaterialModule } from './material/material.module';
 import { AppMessageController } from './app.message.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { SupabaseModule } from './supabase/supabase.module';

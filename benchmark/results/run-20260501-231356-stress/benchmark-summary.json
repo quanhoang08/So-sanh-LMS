@@ -1,0 +1,26 @@
+﻿[
+    {
+        "architecture":  "Monolith",
+        "users":  2000,
+        "scenario":  "concurrent",
+        "workload":  "stress",
+        "runs":  1,
+        "rps_avg":  8781.564,
+        "avg_ms_avg":  81.641,
+        "p95_ms_avg":  0,
+        "p99_ms_avg":  0,
+        "cpu_percent_avg":  87.375
+    },
+    {
+        "architecture":  "Microservices",
+        "users":  2000,
+        "scenario":  "concurrent",
+        "workload":  "stress",
+        "runs":  1,
+        "rps_avg":  8167.578,
+        "avg_ms_avg":  78.212,
+        "p95_ms_avg":  0,
+        "p99_ms_avg":  0,
+        "cpu_percent_avg":  88.556
+    }
+]

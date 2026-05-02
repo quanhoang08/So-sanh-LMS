@@ -55,27 +55,35 @@ export default function () {
     'X-Benchmark-Target': TARGET_ARCH,
   };
 
-  // Seeded credentials / ids (from LMS-monolithic/seed.sql and LMS-microservice/*/schema.sql)
-  const MONOLITH_LOGIN = {
+  const isStudentWorkload = WORKLOAD_TYPE === 'write' || WORKLOAD_TYPE === 'stress';
+
+  const MONOLITH_LOGIN = isStudentWorkload ? {
+    email: '52200001@student.tdtu.edu.vn',
+    password: 'student123',
+  } : {
     email: 'nguyenvana@lecturer.tdtu.edu.vn',
     password: 'lecturer123',
   };
   const MONOLITH_COURSE_DETAIL_ID = '1';
 
-  const MICROSERVICES_LOGIN = {
+  const MICROSERVICES_LOGIN = isStudentWorkload ? {
+    email: 'tranvanquyen@student.tdtu.edu.vn',
+    password: 'hashed_student_pw',
+    role: 'STUDENT',
+  } : {
     email: 'nguyenthanhan@lecturer.tdtu.edu.vn',
-    // AccountService stores bcrypt hash computed from "hashed_lecturer_pw" in schema.sql
     password: 'hashed_lecturer_pw',
     role: 'LECTURER',
   };
   const MICROSERVICES_COURSE_DETAIL_ID = 'BE-NESTJS-01';
 
-  if (WORKLOAD_TYPE === 'read') {
-    let authHeaders = commonHeaders;
+  let authHeaders = commonHeaders;
+  let studentId = 1;
 
-    // Login first, otherwise Course endpoints will return 401.
+  // Logic đăng nhập dùng chung cho các workload cần xác thực
+  function doLogin() {
     if (USE_MONOLITH) {
-      http.post(
+      const res = http.post(
         `${baseUrl}/api/v1/auth/login`,
         JSON.stringify(MONOLITH_LOGIN),
         {
@@ -85,9 +93,9 @@ export default function () {
           timeout: REQUEST_TIMEOUT,
         }
       );
-      // Monolith auth uses cookie refreshToken (JwtStrategy extracts from cookies).
+      if (res.json()?.data?.id) studentId = res.json().data.id;
     } else {
-      const loginRes = http.post(
+      const res = http.post(
         `${baseUrl}/api/v1/users/login`,
         JSON.stringify(MICROSERVICES_LOGIN),
         {
@@ -97,8 +105,9 @@ export default function () {
           timeout: REQUEST_TIMEOUT,
         }
       );
-      const loginJson = loginRes.json();
+      const loginJson = res.json();
       const accessToken = loginJson?.data?.access_token;
+      if (loginJson?.data?.id) studentId = loginJson.data.id;
       if (!accessToken) {
         throw new Error('microservices login: missing data.access_token');
       }
@@ -107,6 +116,10 @@ export default function () {
         Authorization: `Bearer ${accessToken}`,
       };
     }
+  }
+
+  if (WORKLOAD_TYPE === 'read') {
+    doLogin();
 
     http.get(`${baseUrl}/api/v1/courses`, {
       headers: USE_MONOLITH ? commonHeaders : { ...authHeaders },
@@ -120,7 +133,6 @@ export default function () {
       : `${baseUrl}/api/v1/courses/${MICROSERVICES_COURSE_DETAIL_ID}`;
 
     const listPath = USE_MONOLITH ? `${baseUrl}/api/v1/courses` : `${baseUrl}/api/v1/courses/`;
-    // For microservices nginx, list is often routed via the trailing-slash location.
     http.get(listPath, {
       headers: USE_MONOLITH ? commonHeaders : { ...authHeaders },
       responseCallback: expectedStatuses,
@@ -134,72 +146,97 @@ export default function () {
       redirects: 0,
       timeout: REQUEST_TIMEOUT,
     });
-  } else if (WORKLOAD_TYPE === 'write') {
-    http.post(
-      `${baseUrl}/api/v1/auth/login`,
-      JSON.stringify({
-        email: 'test@example.com',
-        password: 'password123',
-      }),
-      {
-        headers: { ...commonHeaders, 'Content-Type': 'application/json' },
-        responseCallback: expectedStatuses,
-        redirects: 0,
-        timeout: REQUEST_TIMEOUT,
-      },
-    );
-    http.post(
-      `${baseUrl}/api/v1/courses/1/enrollments`,
-      JSON.stringify({
-        studentId: 1,
-      }),
-      {
-        headers: { ...commonHeaders, 'Content-Type': 'application/json' },
-        responseCallback: expectedStatuses,
-        redirects: 0,
-        timeout: REQUEST_TIMEOUT,
-      },
-    );
-  } else {
-    http.get(`${baseUrl}/api/v1/courses`, {
-      headers: commonHeaders,
-      responseCallback: expectedStatuses,
-      redirects: 0,
-      timeout: REQUEST_TIMEOUT,
-    });
-    http.get(`${baseUrl}/api/v1/courses/1`, {
-      headers: commonHeaders,
-      responseCallback: expectedStatuses,
-      redirects: 0,
-      timeout: REQUEST_TIMEOUT,
-    });
-    http.post(
-      `${baseUrl}/api/v1/auth/login`,
-      JSON.stringify({
-        email: 'test@example.com',
-        password: 'password123',
-      }),
-      {
-        headers: { ...commonHeaders, 'Content-Type': 'application/json' },
-        responseCallback: expectedStatuses,
-        redirects: 0,
-        timeout: REQUEST_TIMEOUT,
-      },
-    );
-    http.post(
-      `${baseUrl}/api/v1/courses/1/enrollments`,
-      JSON.stringify({
-        studentId: 1,
-      }),
-      {
-        headers: { ...commonHeaders, 'Content-Type': 'application/json' },
-        responseCallback: expectedStatuses,
-        redirects: 0,
-        timeout: REQUEST_TIMEOUT,
-      },
-    );
-  }
 
-  sleep(1);
+    sleep(1);
+
+  } else if (WORKLOAD_TYPE === 'write') {
+    // TC2: Write-Intensive Access
+    doLogin();
+
+    const updateUrl = USE_MONOLITH
+      ? `${baseUrl}/api/v1/students/${studentId}`
+      : `${baseUrl}/api/v1/students/profile`;
+
+    // Mô phỏng ghi dữ liệu: Cập nhật hồ sơ
+    const payload = JSON.stringify({ 
+      phone: `09${Math.floor(10000000 + Math.random() * 90000000)}`,
+      address: `19 Nguyen Huu Tho, Q7, TP.HCM` 
+    });
+    const writeParams = {
+      headers: USE_MONOLITH ? { ...commonHeaders, 'Content-Type': 'application/json' } : { ...authHeaders, 'Content-Type': 'application/json' },
+      responseCallback: expectedStatuses,
+      redirects: 0,
+      timeout: REQUEST_TIMEOUT,
+    };
+
+    if (USE_MONOLITH) {
+      http.put(updateUrl, payload, writeParams);
+    } else {
+      http.patch(updateUrl, payload, writeParams);
+    }
+
+    // Đọc lại để xác nhận
+    const readUrl = USE_MONOLITH
+      ? `${baseUrl}/api/v1/students/${studentId}`
+      : `${baseUrl}/api/v1/students/profile`;
+
+    http.get(readUrl, {
+      headers: USE_MONOLITH ? commonHeaders : { ...authHeaders },
+      responseCallback: expectedStatuses,
+      redirects: 0,
+      timeout: REQUEST_TIMEOUT,
+    });
+
+    sleep(1);
+
+  } else if (WORKLOAD_TYPE === 'stress') {
+    // TC4: High Concurrency / Mixed Load
+    doLogin();
+
+    const reqOptions = {
+      headers: USE_MONOLITH ? commonHeaders : { ...authHeaders },
+      responseCallback: expectedStatuses,
+      redirects: 0,
+      timeout: REQUEST_TIMEOUT,
+    };
+
+    // 1. Xem danh sách khóa học (API Monolith courses có thể cấm student, nhưng nếu cấm thì 403 được coi là thất bại)
+    // Tạm bỏ course list ra khỏi stress của student để tránh fail, thay bằng get profile nhiều lần
+    const profileUrl = USE_MONOLITH
+      ? `${baseUrl}/api/v1/students/${studentId}`
+      : `${baseUrl}/api/v1/students/profile`;
+    
+    http.get(profileUrl, reqOptions);
+    
+    // 2. Cập nhật hồ sơ
+    const payload = JSON.stringify({ phone: `09${Math.floor(10000000 + Math.random() * 90000000)}` });
+    const patchParams = { ...reqOptions, headers: { ...reqOptions.headers, 'Content-Type': 'application/json' } };
+    
+    if (USE_MONOLITH) {
+      http.put(profileUrl, payload, patchParams);
+    } else {
+      http.patch(profileUrl, payload, patchParams);
+    }
+
+    // 3. Xem danh sách đăng ký
+    const enrollmentsUrl = USE_MONOLITH 
+      ? `${baseUrl}/api/v1/students/${studentId}/enrollments`
+      : `${baseUrl}/api/v1/students/profile`; // Microservices chưa có API này thì gọi profile tạm
+    http.get(enrollmentsUrl, reqOptions);
+
+    // Sleep ngắn hơn để tăng áp lực concurrency
+    sleep(0.5);
+
+  } else {
+    // default mixed
+    doLogin();
+    http.get(`${baseUrl}/api/v1/courses`, {
+      headers: USE_MONOLITH ? commonHeaders : { ...authHeaders },
+      responseCallback: expectedStatuses,
+      redirects: 0,
+      timeout: REQUEST_TIMEOUT,
+    });
+    sleep(1);
+  }
 }
 

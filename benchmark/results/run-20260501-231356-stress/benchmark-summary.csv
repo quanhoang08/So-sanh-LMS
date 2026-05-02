@@ -1,0 +1,3 @@
+﻿"architecture","users","scenario","workload","runs","rps_avg","avg_ms_avg","p95_ms_avg","p99_ms_avg","cpu_percent_avg"
+"Monolith","2000","concurrent","stress","1","8781.564","81.641","0","0","87.375"
+"Microservices","2000","concurrent","stress","1","8167.578","78.212","0","0","88.556"

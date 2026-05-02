@@ -10,7 +10,8 @@ ENV VITE_API_URL=$VITE_API_URL
 COPY package*.json ./
 RUN npm install
 
-# COPY . . // đã sửa ở đây vào lúc trưa 16/04/2026 để tối ưu dung lượng
+# Copy toàn bộ source code vào container
+COPY . .
 
 EXPOSE 5173
 

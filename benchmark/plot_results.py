@@ -42,8 +42,10 @@ def find_latest_run(results_dir: Path) -> Path:
     return run_dirs[-1]
 
 
-def normalize_architecture(name: str) -> str:
-    s = (name or "").strip().lower()
+def normalize_architecture(name) -> str:
+    if not isinstance(name, str):
+        name = "" if (name != name) else str(name)  # handle NaN (float)
+    s = name.strip().lower()
     if "micro" in s:
         return "Microservices"
     return "Monolith"
@@ -140,7 +142,7 @@ def plot_all_runs(all_runs_csv: Path, out_dir: Path, formats: List[str]) -> List
 
     if "rps" in grouped.columns:
         pivot_rps = grouped.pivot(index="users", columns="architecture", values="rps")
-        ax = pivot_rps.plot(marker="o", figsize=(8, 4))
+        ax = pivot_rps.plot(marker="o", linestyle="-", linewidth=2, figsize=(8, 4))
         ax.set_title("Throughput vs Number of Users")
         ax.set_xlabel("Number of Users")
         ax.set_ylabel("Throughput (RPS)")
@@ -152,7 +154,7 @@ def plot_all_runs(all_runs_csv: Path, out_dir: Path, formats: List[str]) -> List
     latency_col = "p95_ms" if "p95_ms" in grouped.columns else "avg_ms"
     if latency_col in grouped.columns:
         pivot_latency = grouped.pivot(index="users", columns="architecture", values=latency_col)
-        ax = pivot_latency.plot(marker="o", figsize=(8, 4))
+        ax = pivot_latency.plot(marker="o", linestyle="-", linewidth=2, figsize=(8, 4))
         ax.set_title("Response Time vs Number of Users")
         ax.set_xlabel("Number of Users")
         ax.set_ylabel("Response Time (ms)")
@@ -163,7 +165,7 @@ def plot_all_runs(all_runs_csv: Path, out_dir: Path, formats: List[str]) -> List
 
     if "avg_cpu_percent" in grouped.columns:
         pivot_cpu = grouped.pivot(index="users", columns="architecture", values="avg_cpu_percent")
-        ax = pivot_cpu.plot(marker="o", figsize=(8, 4))
+        ax = pivot_cpu.plot(marker="o", linestyle="-", linewidth=2, figsize=(8, 4))
         ax.set_title("CPU Usage vs Number of Users")
         ax.set_xlabel("Number of Users")
         ax.set_ylabel("CPU Usage (%)")
@@ -197,28 +199,97 @@ def plot_cpu_samples(run_dir: Path, out_dir: Path, formats: List[str]) -> List[P
 
     for cpu_file in cpu_files:
         df = pd.read_csv(cpu_file)
-        container_col = infer_container_col(df)
         cpu_col = infer_cpu_col(df)
-        if not container_col or not cpu_col:
+        if not cpu_col or "timestamp" not in df.columns:
             continue
 
-        # Compute average CPU per container for each architecture file.
-        grouped = (
-            df.groupby(container_col, dropna=False)[cpu_col]
-            .mean()
-            .sort_values(ascending=False)
-            .head(12)
-        )
-        if grouped.empty:
+        # Convert timestamp and sort
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df = df.sort_values("timestamp")
+
+        if df.empty:
             continue
 
-        ax = grouped.plot(kind="bar", figsize=(10, 4), color="#72B7B2")
-        ax.set_title(f"Avg CPU by Container - {cpu_file.stem}")
-        ax.set_xlabel("Container")
-        ax.set_ylabel(cpu_col)
-        ax.grid(axis="y", linestyle="--", alpha=0.35)
+        source_col = "source" if "source" in df.columns else None
+
+        # Vẽ biểu đồ timeline (line chart), hỗ trợ nhiều line theo source nếu có.
+        fig, ax = plt.subplots(figsize=(10, 4))
+        if source_col is None:
+            ax.plot(df["timestamp"], df[cpu_col], marker="o", linestyle="-", color="#E15759", markersize=4)
+        else:
+            for source, view in df.groupby(source_col):
+                view = view.sort_values("timestamp")
+                ax.plot(
+                    view["timestamp"],
+                    view[cpu_col],
+                    marker="o",
+                    linestyle="-",
+                    linewidth=1.6,
+                    markersize=3,
+                    label=str(source),
+                )
+            ax.legend(loc="upper left", fontsize=8)
+        
+        import matplotlib.dates as mdates
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        
+        ax.set_title(f"CPU Usage Timeline - {cpu_file.stem}")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("CPU Usage (%)")
+        
+        # Dat limit y-axis de de so sanh
+        max_cpu = df[cpu_col].max()
+        ax.set_ylim(0, max(100, max_cpu + 10))
+        
+        ax.grid(True, linestyle="--", alpha=0.35)
         plt.tight_layout()
-        saved.extend(save_current_figure(out_dir, f"{cpu_file.stem}_by_container", formats))
+        saved.extend(save_current_figure(out_dir, f"{cpu_file.stem}_timeline", formats))
+        plt.close(fig)
+
+    return saved
+
+
+def plot_cpu_averages_vs_users(run_dir: Path, out_dir: Path, formats: List[str]) -> List[Path]:
+    saved: List[Path] = []
+    cpu_files = sorted(run_dir.glob("*-cpu-samples.csv"))
+    if not cpu_files:
+        return saved
+
+    dfs = []
+    for f in cpu_files:
+        try:
+            df = pd.read_csv(f)
+            dfs.append(df)
+        except Exception:
+            pass
+
+    if not dfs:
+        return saved
+
+    combined = pd.concat(dfs, ignore_index=True)
+    if not {"users", "architecture", "source"}.issubset(combined.columns):
+        return saved
+
+    cpu_col = infer_cpu_col(combined)
+    if not cpu_col:
+        return saved
+
+    combined["architecture"] = combined["architecture"].apply(normalize_architecture)
+    combined["users"] = pd.to_numeric(combined["users"], errors="coerce")
+
+    grouped = combined.groupby(["architecture", "users", "source"], as_index=False)[cpu_col].mean()
+
+    for arch, arch_df in grouped.groupby("architecture"):
+        pivot = arch_df.pivot(index="users", columns="source", values=cpu_col)
+        ax = pivot.plot(marker="o", linestyle="-", linewidth=2, figsize=(10, 5))
+        ax.set_title(f"CPU Usage vs Number of Users - {arch}")
+        ax.set_xlabel("Number of Users")
+        ax.set_ylabel("Average CPU Usage (%)")
+        ax.grid(True, linestyle="--", alpha=0.35)
+
+        ax.legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize=8)
+        plt.tight_layout()
+        saved.extend(save_current_figure(out_dir, f"cpu_usage_vs_users_{arch.lower()}", formats))
         plt.close()
 
     return saved
@@ -285,6 +356,7 @@ def main() -> None:
         print(f"[WARN] Khong tim thay {all_runs_csv.name}")
 
     saved.extend(plot_cpu_samples(run_dir, out_dir, formats))
+    saved.extend(plot_cpu_averages_vs_users(run_dir, out_dir, formats))
 
     if saved:
         print("Da tao cac chart:")

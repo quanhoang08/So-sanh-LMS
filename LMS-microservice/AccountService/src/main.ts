@@ -56,6 +56,10 @@ async function bootstrap() {
   // 3. KHỞI CHẠY SERVER
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 3001;
+
+  // Khởi động tất cả microservice listeners (RabbitMQ, etc.) trước khi listen HTTP
+  await app.startAllMicroservices();
+
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 Accounts & Security Microservice is running on: http://localhost:${port}`);
 }

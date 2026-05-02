@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("info", "quick", "full")]
+  [ValidateSet("info", "quick", "full", "stress")]
   [string]$Mode = "full",
 
   [string]$MonolithBaseUrl = "http://127.0.0.1:3001",
@@ -10,6 +10,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# Đảm bảo working directory luôn là thư mục chứa script này (benchmark/)
+# để các lệnh gọi ".\export-benchmark.ps1", ".\start-native-router.ps1", v.v. hoạt động đúng
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $scriptDir
 
 function Write-Section {
   param([string]$Title)
@@ -25,7 +30,7 @@ function Show-TechAndFlow {
   Write-Host "- k6: tao tai va do metric hieu nang (rps, latency, failed rate)."
   Write-Host "- Node.js native router (benchmark/native-router.js): route theo header X-Benchmark-Target."
   Write-Host "- Docker Compose: chay monolith + microservices + gateway (neu ban chay qua Docker)."
-  Write-Host "- CSV/JSON output: benchmark-all-runs.csv, benchmark-summary.csv, *-summary.json, *-k6.log."
+  Write-Host "- CSV output: benchmark-all-runs.csv, benchmark-summary.csv, *-cpu-samples.csv"
   Write-Host "- Windows Performance Counter: lay mau CPU host trong luc chay case."
 
   Write-Section "2) CACH HOAT DONG"
@@ -34,7 +39,7 @@ function Show-TechAndFlow {
   Write-Host "   - monolith     -> $MonolithBaseUrl"
   Write-Host "   - microservices -> $MicroservicesBaseUrl"
   Write-Host "3. k6 script benchmark/k6/test.js chay workload read/write/mixed."
-  Write-Host "4. export-benchmark.ps1 chay tung case, gom metric, ghi CSV/JSON."
+  Write-Host "4. export-benchmark.ps1 chay tung case, gom metric, ghi CSV."
 }
 
 function Test-OneEndpoint {
@@ -124,27 +129,87 @@ function Run-Benchmark {
   Write-Section ("4) RUN BENCHMARK MODE = " + $SelectedMode.ToUpperInvariant())
 
   if ($SelectedMode -eq "quick") {
+    # Có thể tăng UserLevels lên 2000 để kiểm tra throughput/response time cực đại (nếu máy đủ mạnh)
+    # -------------------------------------------------------
+    # Kịch bản Concurrent Read (giữ cố định số VU)
+    # Tất cả user gửi request đồng thời trong suốt thời gian test.
+    # -------------------------------------------------------
     & powershell -NoProfile -ExecutionPolicy Bypass -File ".\export-benchmark.ps1" `
       -Runs 1 `
-      -ScenarioType concurrent `
+      -ScenarioType ramp `
       -WorkloadType read `
-      -UserLevels "10,20" `
-      -ConcurrentDuration "20s" `
+      -UserLevels "1,5,10,15,20,50,100,200,500,1000,1500,2000" `
+      -StageDuration "20s" `
       -SampleIntervalSec 2 `
       -CaseCooldownSec 1 `
       -BaseUrl $baseUrl `
       -SkipHealthCheck
   } elseif ($SelectedMode -eq "full") {
+    # Có thể tăng UserLevels lên 2000 để kiểm tra throughput/response time cực đại (nếu máy đủ mạnh)
+    # -------------------------------------------------------
+    # Kịch bản Concurrent Read (giữ cố định số VU)
+    # Tất cả user gửi request đồng thời trong suốt thời gian test.
+    # -------------------------------------------------------
     & powershell -NoProfile -ExecutionPolicy Bypass -File ".\export-benchmark.ps1" `
       -Runs 3 `
-      -ScenarioType concurrent `
+      -ScenarioType ramp `
       -WorkloadType read `
-      -UserLevels "1,5,10,15,20,50" `
-      -ConcurrentDuration "2m" `
+      -UserLevels "1,5,10,15,20,50,100,200,500,1000,1500,2000" `
+      -StageDuration "2m" `
       -SampleIntervalSec 2 `
       -CaseCooldownSec 2 `
       -BaseUrl $baseUrl `
       -SkipHealthCheck
+
+    # -------------------------------------------------------
+    # TC2: Write-Intensive Access (Concurrent)
+    # -------------------------------------------------------
+    & powershell -NoProfile -ExecutionPolicy Bypass -File ".\export-benchmark.ps1" `
+      -Runs 3 `
+      -ScenarioType ramp `
+      -WorkloadType write `
+      -UserLevels "1,5,10,15,20,50,100,200,500,1000,1500,2000" `
+      -StageDuration "2m" `
+      -SampleIntervalSec 2 `
+      -CaseCooldownSec 2 `
+      -BaseUrl $baseUrl `
+      -SkipHealthCheck
+
+    # -------------------------------------------------------
+    # TC3: Mixed Access (Concurrent)
+    # -------------------------------------------------------
+    & powershell -NoProfile -ExecutionPolicy Bypass -File ".\export-benchmark.ps1" `
+      -Runs 3 `
+      -ScenarioType ramp `
+      -WorkloadType mixed `
+      -UserLevels "1,5,10,15,20,50,100,200,500,1000,1500,2000" `
+      -StageDuration "2m" `
+      -SampleIntervalSec 2 `
+      -CaseCooldownSec 2 `
+      -BaseUrl $baseUrl `
+      -SkipHealthCheck 
+
+    # -------------------------------------------------------
+    # TC Concurrent tam thoi TAM DUNG theo yeu cau hien tai.
+    # Neu can bat lai, su dung:
+    #   -ScenarioType concurrent -ConcurrentDuration 2m
+    # TC Stress cung TAM DUNG trong mode full.
+    # -------------------------------------------------------
+
+  } elseif ($SelectedMode -eq "stress") {
+    # Mode stress mặc định đã dùng 2000 user để kiểm tra tải cực lớn
+    Write-Section "RUNNING STRESS TEST ONLY"
+    & powershell -NoProfile -ExecutionPolicy Bypass -File ".\export-benchmark.ps1" `
+      -Runs 1 `
+      -ScenarioType concurrent `
+      -WorkloadType stress `
+      -UserLevels "2000" `
+      -ConcurrentDuration "3m" `
+      -SampleIntervalSec 2 `
+      -CaseCooldownSec 5 `
+      -BaseUrl $baseUrl `
+      -SkipHealthCheck
+
   } else {
     Write-Host "Mode info: bo qua benchmark run."
     return
