@@ -1,0 +1,50 @@
+﻿[
+    {
+        "architecture":  "Monolith",
+        "users":  1,
+        "scenario":  "ramp",
+        "workload":  "read",
+        "runs":  3,
+        "rps_avg":  3.797,
+        "avg_ms_avg":  13.16,
+        "p95_ms_avg":  26.295,
+        "p99_ms_avg":  49.469,
+        "cpu_percent_avg":  25.325
+    },
+    {
+        "architecture":  "Microservices",
+        "users":  1,
+        "scenario":  "ramp",
+        "workload":  "read",
+        "runs":  3,
+        "rps_avg":  3.67,
+        "avg_ms_avg":  22.264,
+        "p95_ms_avg":  65.565,
+        "p99_ms_avg":  75.833,
+        "cpu_percent_avg":  21.881
+    },
+    {
+        "architecture":  "Monolith",
+        "users":  5,
+        "scenario":  "ramp",
+        "workload":  "read",
+        "runs":  3,
+        "rps_avg":  9.522,
+        "avg_ms_avg":  12.124,
+        "p95_ms_avg":  23.197,
+        "p99_ms_avg":  40.439,
+        "cpu_percent_avg":  20.303
+    },
+    {
+        "architecture":  "Microservices",
+        "users":  5,
+        "scenario":  "ramp",
+        "workload":  "read",
+        "runs":  3,
+        "rps_avg":  9.196,
+        "avg_ms_avg":  21.39,
+        "p95_ms_avg":  63.072,
+        "p99_ms_avg":  74.709,
+        "cpu_percent_avg":  20.8
+    }
+]

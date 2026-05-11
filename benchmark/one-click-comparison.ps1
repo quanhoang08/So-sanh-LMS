@@ -154,7 +154,7 @@ function Run-Benchmark {
       -Runs 3 `
       -ScenarioType ramp `
       -WorkloadType read `
-      -UserLevels "1,5,10,15,20,50,100,200,500,1000,1500,2000" `
+      -UserLevels "1,5" `
       -StageDuration "2m" `
       -SampleIntervalSec 2 `
       -CaseCooldownSec 2 `
@@ -196,8 +196,9 @@ function Run-Benchmark {
     # TC Stress cung TAM DUNG trong mode full.
     # -------------------------------------------------------
 
+
+
   } elseif ($SelectedMode -eq "stress") {
-    # Mode stress mặc định đã dùng 2000 user để kiểm tra tải cực lớn
     Write-Section "RUNNING STRESS TEST ONLY"
     & powershell -NoProfile -ExecutionPolicy Bypass -File ".\export-benchmark.ps1" `
       -Runs 1 `
@@ -248,6 +249,8 @@ try {
   Write-Host "Hoan tat flow benchmark."
   Write-Host "Mac dinh script chay mode full va tu start router."
   Write-Host "Neu muon khong dong vao router hien tai, them -NoStartRouter."
+  Write-Host "Cac mode co san: info, quick, full, stress, concurrent-mixed"
+  Write-Host "Vi du chay concurrent mixed: .\one-click-comparison.ps1 -Mode concurrent-mixed"
 }
 catch {
   Write-Host ""

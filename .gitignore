@@ -20,3 +20,31 @@ Thumbs.db
 
 # Logs
 *.log
+# Env files
+.env
+
+# Coverage
+coverage/
+.nyc_output/
+.early.coverage/
+test/
+
+# IDEs and editors
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Build
+build/
+
+# Docker
+.dockerignore
+
+# Misc
+package-lock.json
+.puml
+.prettierrc

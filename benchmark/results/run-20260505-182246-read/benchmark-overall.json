@@ -1,0 +1,32 @@
+﻿[
+    {
+        "architecture":  "Monolith",
+        "scenario":  "ramp",
+        "workload":  "read",
+        "runs":  6,
+        "users_tested":  [
+                             1,
+                             5
+                         ],
+        "rps_avg":  6.659,
+        "avg_ms_avg":  12.642,
+        "p95_ms_avg":  24.746,
+        "p99_ms_avg":  44.954,
+        "cpu_percent_avg":  22.814
+    },
+    {
+        "architecture":  "Microservices",
+        "scenario":  "ramp",
+        "workload":  "read",
+        "runs":  6,
+        "users_tested":  [
+                             1,
+                             5
+                         ],
+        "rps_avg":  6.433,
+        "avg_ms_avg":  21.827,
+        "p95_ms_avg":  64.318,
+        "p99_ms_avg":  75.271,
+        "cpu_percent_avg":  21.341
+    }
+]

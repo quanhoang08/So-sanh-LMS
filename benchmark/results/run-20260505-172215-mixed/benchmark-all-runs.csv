@@ -1,0 +1,7 @@
+﻿"timestamp","architecture","run","users","scenario","workload","rps","http_reqs_count","avg_ms","p95_ms","p99_ms","http_req_failed_rate","avg_cpu_percent","cpu_samples","cpu_samples_csv"
+"2026-05-05T17:24:23.8892021+07:00","Monolith","1","2000","concurrent","mixed","8751.302","1081853","122.794","0","5175.668","0.986302","76.561","25","monolith-u2000-concurrent-mixed-run1-cpu-samples.csv"
+"2026-05-05T17:26:33.8143936+07:00","Microservices","1","2000","concurrent","mixed","7538.351","960745","106.938","0","4645.157","0.989535","91.892","25","microservices-u2000-concurrent-mixed-run1-cpu-samples.csv"
+"2026-05-05T17:28:44.9530439+07:00","Monolith","2","2000","concurrent","mixed","7696.176","952521","104.333","0","3995.686","0.987967","74.98","25","monolith-u2000-concurrent-mixed-run2-cpu-samples.csv"
+"2026-05-05T17:30:54.9607623+07:00","Microservices","2","2000","concurrent","mixed","7241.646","910293","105.724","0","3154.534","0.990087","87.346","25","microservices-u2000-concurrent-mixed-run2-cpu-samples.csv"
+"2026-05-05T17:33:09.1798942+07:00","Monolith","3","2000","concurrent","mixed","7872.591","1002618","126.06","0","5115.496","0.980815","78.591","25","monolith-u2000-concurrent-mixed-run3-cpu-samples.csv"
+"2026-05-05T17:35:17.7529899+07:00","Microservices","3","2000","concurrent","mixed","6648.575","842426","106.32","0","2893.815","0.989998","87.725","25","microservices-u2000-concurrent-mixed-run3-cpu-samples.csv"

@@ -10,6 +10,9 @@ services:
       environment:
       # Thêm dòng này để fix lỗi permission cookie
       - RABBITMQ_ERLANG_COOKIE=LMS_SECRET_COOKIE
+      # Giới hạn tài nguyên (hoạt động với docker-compose up)
+      mem_limit: 256m
+      cpus: 0.5
       healthcheck:
         test: ["CMD", "rabbitmq-diagnostics", "ping"]
         interval: 5s

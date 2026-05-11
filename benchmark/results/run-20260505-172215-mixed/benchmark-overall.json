@@ -1,0 +1,30 @@
+﻿[
+    {
+        "architecture":  "Monolith",
+        "scenario":  "concurrent",
+        "workload":  "mixed",
+        "runs":  3,
+        "users_tested":  [
+                             2000
+                         ],
+        "rps_avg":  8106.69,
+        "avg_ms_avg":  117.729,
+        "p95_ms_avg":  0,
+        "p99_ms_avg":  4762.283,
+        "cpu_percent_avg":  76.711
+    },
+    {
+        "architecture":  "Microservices",
+        "scenario":  "concurrent",
+        "workload":  "mixed",
+        "runs":  3,
+        "users_tested":  [
+                             2000
+                         ],
+        "rps_avg":  7142.857,
+        "avg_ms_avg":  106.327,
+        "p95_ms_avg":  0,
+        "p99_ms_avg":  3564.502,
+        "cpu_percent_avg":  88.988
+    }
+]

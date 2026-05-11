@@ -1,0 +1,5 @@
+﻿"architecture","users","scenario","workload","runs","rps_avg","avg_ms_avg","p95_ms_avg","p99_ms_avg","cpu_percent_avg"
+"Monolith","1","ramp","read","3","3.797","13.16","26.295","49.469","25.325"
+"Microservices","1","ramp","read","3","3.67","22.264","65.565","75.833","21.881"
+"Monolith","5","ramp","read","3","9.522","12.124","23.197","40.439","20.303"
+"Microservices","5","ramp","read","3","9.196","21.39","63.072","74.709","20.8"

@@ -9,7 +9,7 @@ import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { AppMessageController } from '../app.message.controller';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { LessonModule } from '../lesson/lesson.module';
-import { MaterialModule } from '../material/material.module.';
+import { MaterialModule } from '../material/material.module';
 import { Lesson } from '../lesson/lesson.entity';
 
 @Module({
